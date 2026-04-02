@@ -70,11 +70,11 @@ Plans:
   3. After `sudo reboot`, the daemon starts automatically within 10 seconds of boot without manual intervention
   4. `/dev/ttyRS485` symlink exists after reboot and after unplugging/replugging the USB-RS485 adapter (udev rule in place)
   5. Cross-compiled `aarch64-unknown-linux-gnu` release binary (`cargo cross build --release --target aarch64-unknown-linux-gnu`) builds without linker errors
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: Systemd `.service` unit file + udev rule + `dialout` group setup + deployment docs
-- [ ] 04-02: Cross-compilation setup (`cargo cross`, `Cargo.toml` profile, `rustls-tls` flag) + release build verification
+- [ ] 04-01-PLAN.md — systemd `.service` unit + udev rule `/dev/ttyRS485` + `install.sh` deployment script (Wave 1)
+- [ ] 04-02-PLAN.md — `Cross.toml` for aarch64/armv7 targets + `deploy/build-release.sh` + cross-compiled release binary verification (Wave 1)
 
 ## Progress
 
