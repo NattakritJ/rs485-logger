@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 07-02-PLAN.md — config validation hardening
-last_updated: "2026-04-02T18:10:39.941Z"
+stopped_at: Completed 07-01-PLAN.md — InfluxDB client hardening + git hygiene + log rotation
+last_updated: "2026-04-02T18:12:07.953Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 7
   completed_phases: 6
   total_plans: 16
-  completed_plans: 14
+  completed_plans: 15
   percent: 81
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 ## Current Position
 
 Phase: 07 (daemon-reliability-hardening) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-02
 
@@ -57,6 +57,7 @@ Progress: [████████░░] 81%
 | Phase 06-daily-energy-reset P01 | — | 2 tasks | 3 files |
 | Phase 06-daily-energy-reset P02 | — | 2 tasks | 2 files |
 | Phase 07 P02 | 90 | 4 tasks | 2 files |
+| Phase 07 P01 | 236 | 6 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -92,6 +93,9 @@ Recent decisions affecting current work:
 - [Phase 06-daily-energy-reset]: chrono-tz IANA timezone parsing at startup — config error logged as WARN, energy reset disabled gracefully
 - [Phase 07]: Device name validation uses alphanumeric+underscore whitelist — prevents InfluxDB line protocol injection via config
 - [Phase 07]: Energy reset timezone/time validated at startup (not lazily) — invalid config causes fatal error before first poll
+- [Phase 07-01]: InfluxWriter::new() returns anyhow::Result — reqwest::Client::builder().build() is fallible; propagating the error is correct Rust
+- [Phase 07-01]: Database name validated at config time (not URL-encoded) — simpler and more robust; names should be plain identifiers
+- [Phase 07-01]: config.toml removed from git tracking; config.toml.example with placeholder token is the canonical reference
 
 ### Roadmap Evolution
 
@@ -116,6 +120,6 @@ Phase 7 requires fixing 14 daemon reliability findings before production confide
 
 ## Session Continuity
 
-Last session: 2026-04-02T18:10:39.938Z
-Stopped at: Completed 07-02-PLAN.md — config validation hardening
+Last session: 2026-04-02T18:12:07.949Z
+Stopped at: Completed 07-01-PLAN.md — InfluxDB client hardening + git hygiene + log rotation
 Resume file: None

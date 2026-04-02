@@ -81,10 +81,10 @@ Plans:
 **Goal:** Fix all 14 findings from the daemon reliability verification report — eliminate daemon-hang modes, unrecoverable serial failures, config validation gaps, and operational hygiene issues so the daemon runs reliably on a Raspberry Pi indefinitely.
 **Requirements**: REL-01
 **Depends on:** Phase 6
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 
 Plans:
-- [ ] 07-01-PLAN.md — InfluxDB client timeouts + git hygiene + log rotation (CRIT-01, CRIT-03, HIGH-01, HIGH-03, MED-01, MED-02) (Wave 1)
+- [x] 07-01-PLAN.md — InfluxDB client timeouts + git hygiene + log rotation (CRIT-01, CRIT-03, HIGH-01, HIGH-03, MED-01, MED-02) (Wave 1)
 - [x] 07-02-PLAN.md — Config validation hardening: device names, energy reset timezone/time, clock warning (HIGH-02, MED-05, LOW-02) (Wave 1)
 - [ ] 07-03-PLAN.md — Runtime resilience: serial recovery exit, post-timeout delay, InfluxDB backoff (CRIT-02, HIGH-04, MED-04) (Wave 2)
 
@@ -100,7 +100,7 @@ Plans:
 | 4. Systemd Deployment | 2/2 | Complete   | 2026-04-02 |
 | 5. README / Manual | 1/1 | Complete   | 2026-04-02 |
 | 6. Daily Energy Reset | 2/2 | Complete   | 2026-04-03 |
-| 7. Daemon Reliability | 1/3 | In Progress|  |
+| 7. Daemon Reliability | 2/3 | In Progress|  |
 
 ### Phase 5: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
 
