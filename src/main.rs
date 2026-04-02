@@ -151,6 +151,18 @@ async fn main() -> anyhow::Result<()> {
     let mut poller = ModbusPoller::new(&cfg.serial)?;
     let writer = InfluxWriter::new(&cfg.influxdb)?;
 
+    // CRIT-02: Track consecutive poll cycles where ALL devices fail.
+    // If the counter reaches MAX_CONSECUTIVE_ALL_FAIL, exit with code 1
+    // so systemd `Restart=always` restarts the process and re-opens the serial port.
+    let mut consecutive_all_fail: u32 = 0;
+    const MAX_CONSECUTIVE_ALL_FAIL: u32 = 10;
+
+    // MED-04: Track InfluxDB health to suppress repeated write-failure log spam.
+    // On transition healthy → unhealthy: log WARN.
+    // On transition unhealthy → healthy: log INFO.
+    // While unhealthy: silently drop per-write errors.
+    let mut influx_healthy = true;
+
     let mut ticker = tokio::time::interval(
         std::time::Duration::from_secs(cfg.poll_interval_secs),
     );
@@ -256,19 +268,30 @@ async fn main() -> anyhow::Result<()> {
                 reset_sleep.as_mut().reset(next_deadline);
             }
             _ = ticker.tick() => {
+                // CRIT-02: Track whether at least one device succeeded this cycle.
+                let mut any_ok = false;
+
                 for device in &cfg.devices {
                     match poller.poll_device(device).await {
                         Ok(reading) => {
+                            any_ok = true;
                             tracing::info!(
                                 device = %device.name,
                                 "Poll success"
                             );
+                            // MED-04: InfluxDB health-state tracking — suppress repeated log spam.
                             if let Err(e) = writer.write(&reading).await {
-                                tracing::warn!(
-                                    device = %device.name,
-                                    error = %e,
-                                    "InfluxDB write failed"
-                                );
+                                if influx_healthy {
+                                    tracing::warn!(
+                                        device = %device.name,
+                                        error = %e,
+                                        "InfluxDB write failed — suppressing further warnings until restored"
+                                    );
+                                    influx_healthy = false;
+                                }
+                            } else if !influx_healthy {
+                                tracing::info!("InfluxDB connection restored");
+                                influx_healthy = true;
                             }
                         }
                         Err(e) => {
@@ -277,6 +300,11 @@ async fn main() -> anyhow::Result<()> {
                                 error = %e,
                                 "Device poll failed, skipping"
                             );
+                            // HIGH-04: After a timeout/error, allow stale Modbus frames
+                            // to drain from the serial buffer before polling the next
+                            // device. This 100ms delay only fires on error, not on
+                            // successful polls, so it does not impact normal throughput.
+                            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                         }
                     }
                     // RS-485 inter-frame delay: ensure the bus settles between
@@ -284,6 +312,27 @@ async fn main() -> anyhow::Result<()> {
                     // write provided an accidental delay on the success path,
                     // but the error path had none — make it explicit everywhere.
                     poller.bus_delay().await;
+                }
+
+                // CRIT-02: If no device succeeded, increment the consecutive-failure
+                // counter. When it reaches MAX_CONSECUTIVE_ALL_FAIL, exit so systemd
+                // `Restart=always` can restart the process and re-open the serial port.
+                if any_ok {
+                    consecutive_all_fail = 0;
+                } else {
+                    consecutive_all_fail += 1;
+                    tracing::warn!(
+                        consecutive_failures = consecutive_all_fail,
+                        "All devices failed this poll cycle"
+                    );
+                    if consecutive_all_fail >= MAX_CONSECUTIVE_ALL_FAIL {
+                        tracing::error!(
+                            consecutive_failures = consecutive_all_fail,
+                            "All devices failed {} consecutive polls — exiting for systemd restart",
+                            MAX_CONSECUTIVE_ALL_FAIL
+                        );
+                        break;
+                    }
                 }
             }
             _ = &mut shutdown => {
