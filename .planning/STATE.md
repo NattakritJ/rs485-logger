@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-stopped_at: Phase 6 complete — all phases done
-last_updated: "2026-04-03T00:00:00.000Z"
-last_activity: "2026-04-03 - Phase 6 daily energy reset implemented (scheduler.rs, poller.reset_energy, main.rs select! arm)"
+status: executing
+stopped_at: Completed 07-02-PLAN.md — config validation hardening
+last_updated: "2026-04-02T18:10:39.941Z"
+last_activity: 2026-04-02
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  total_plans: 16
+  completed_plans: 14
+  percent: 81
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
-**Current focus:** Complete — all 6 phases shipped.
+**Current focus:** Phase 07 — daemon-reliability-hardening
 
 ## Current Position
 
-Phase: 6
-Plan: All complete
-Status: Milestone complete
-Last activity: 2026-04-03 - Phase 6 daily energy reset implemented (scheduler.rs, poller.reset_energy, main.rs select! arm)
+Phase: 07 (daemon-reliability-hardening) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-02
 
-Progress: [██████████] 100%
+Progress: [████████░░] 81%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 05-readme-manual P01 | 3 | 1 tasks | 2 files |
 | Phase 06-daily-energy-reset P01 | — | 2 tasks | 3 files |
 | Phase 06-daily-energy-reset P02 | — | 2 tasks | 2 files |
+| Phase 07 P02 | 90 | 4 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -89,19 +90,22 @@ Recent decisions affecting current work:
 - [Phase 06-daily-energy-reset]: far_future() parks reset_sleep arm when disabled — no conditional select! needed
 - [Phase 06-daily-energy-reset]: reset_energy() returns Ok(()) on 0xC2 device error — skip-and-log per D-12
 - [Phase 06-daily-energy-reset]: chrono-tz IANA timezone parsing at startup — config error logged as WARN, energy reset disabled gracefully
+- [Phase 07]: Device name validation uses alphanumeric+underscore whitelist — prevents InfluxDB line protocol injection via config
+- [Phase 07]: Energy reset timezone/time validated at startup (not lazily) — invalid config causes fatal error before first poll
 
 ### Roadmap Evolution
 
 - Phase 5 added: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
 - Phase 6 added: Send command to Reset energy at the beginning of the day (00:00 Thailand timezone). Observe file ct_datasheet.txt for instruction.
+- Phase 7 added: Daemon reliability hardening — fix all 14 findings from daemon reliability verification report
 
 ### Pending Todos
 
-None.
+Phase 7: 3 plans (07-01, 07-02, 07-03) — daemon reliability hardening.
 
 ### Blockers/Concerns
 
-None — milestone complete.
+Phase 7 requires fixing 14 daemon reliability findings before production confidence.
 
 ### Quick Tasks Completed
 
@@ -112,6 +116,6 @@ None — milestone complete.
 
 ## Session Continuity
 
-Last session: 2026-04-03T17:21:46Z
-Stopped at: Quick task 260403-0gn complete — --clear flag added to main.rs
-Resume file: N/A — all phases complete
+Last session: 2026-04-02T18:10:39.938Z
+Stopped at: Completed 07-02-PLAN.md — config validation hardening
+Resume file: None

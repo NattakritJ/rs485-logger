@@ -7,9 +7,9 @@ A focused, 4-phase build: stand up the Rust project foundation with config parsi
 ## Phases
 
 - [x] **Phase 1: Foundation** - Config parsing, data types, and register decoder — fully unit-testable, no hardware or network required (completed 2026-04-02)
-- [ ] **Phase 2: InfluxDB Integration** - Line protocol builder and HTTP write client — validates data destination against a local InfluxDB instance before hardware is needed
+- [x] **Phase 2: InfluxDB Integration** - Line protocol builder and HTTP write client — validates data destination against a local InfluxDB instance before hardware is needed (completed 2026-04-02)
 - [x] **Phase 3: Modbus + Poll Loop** - Hardware integration, full polling loop, error handling, logging, and graceful shutdown (completed 2026-04-02)
-- [ ] **Phase 4: Systemd Deployment** - Production packaging: systemd service unit, udev stable device naming, serial permissions, and cross-compilation
+- [x] **Phase 4: Systemd Deployment** - Production packaging: systemd service unit, udev stable device naming, serial permissions, and cross-compilation (completed 2026-04-02)
 
 ## Phase Details
 
@@ -40,8 +40,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — `to_line_protocol()` TDD — float-typed line protocol from PowerReading (Wave 1)
-- [ ] 02-02-PLAN.md — `InfluxWriter` struct with reqwest HTTP POST + error handling + integration test (Wave 2)
+- [x] 02-01-PLAN.md — `to_line_protocol()` TDD — float-typed line protocol from PowerReading (Wave 1)
+- [x] 02-02-PLAN.md — `InfluxWriter` struct with reqwest HTTP POST + error handling + integration test (Wave 2)
 
 ### Phase 3: Modbus + Poll Loop
 **Goal**: Integrate `tokio-modbus` RTU client with real PZEM-016 hardware; wire config → poller → writer into the full sequential poll loop with skip-and-continue error handling, structured logging, and graceful shutdown.
@@ -76,16 +76,31 @@ Plans:
 - [x] 04-01-PLAN.md — systemd `.service` unit + udev rule `/dev/ttyRS485` + `install.sh` deployment script (Wave 1)
 - [x] 04-02-PLAN.md — `Cross.toml` for aarch64/armv7 targets + `deploy/build-release.sh` + cross-compiled release binary verification (Wave 1)
 
+### Phase 7: Daemon Reliability Hardening
+
+**Goal:** Fix all 14 findings from the daemon reliability verification report — eliminate daemon-hang modes, unrecoverable serial failures, config validation gaps, and operational hygiene issues so the daemon runs reliably on a Raspberry Pi indefinitely.
+**Requirements**: REL-01
+**Depends on:** Phase 6
+**Plans:** 1/3 plans executed
+
+Plans:
+- [ ] 07-01-PLAN.md — InfluxDB client timeouts + git hygiene + log rotation (CRIT-01, CRIT-03, HIGH-01, HIGH-03, MED-01, MED-02) (Wave 1)
+- [x] 07-02-PLAN.md — Config validation hardening: device names, energy reset timezone/time, clock warning (HIGH-02, MED-05, LOW-02) (Wave 1)
+- [ ] 07-03-PLAN.md — Runtime resilience: serial recovery exit, post-timeout delay, InfluxDB backoff (CRIT-02, HIGH-04, MED-04) (Wave 2)
+
 ## Progress
 
-**Execution Order:** 1 → 2 → 3 → 4
+**Execution Order:** 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-04-02 |
-| 2. InfluxDB Integration | 0/2 | Not started | - |
+| 2. InfluxDB Integration | 2/2 | Complete   | 2026-04-02 |
 | 3. Modbus + Poll Loop | 3/3 | Complete   | 2026-04-02 |
-| 4. Systemd Deployment | 0/2 | Not started | - |
+| 4. Systemd Deployment | 2/2 | Complete   | 2026-04-02 |
+| 5. README / Manual | 1/1 | Complete   | 2026-04-02 |
+| 6. Daily Energy Reset | 2/2 | Complete   | 2026-04-03 |
+| 7. Daemon Reliability | 1/3 | In Progress|  |
 
 ### Phase 5: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
 
@@ -102,8 +117,8 @@ Plans:
 **Goal:** Schedule and send Modbus FC 0x42 (Reset Energy) to each configured PZEM-016 device once per day at 00:00 Asia/Bangkok time, so the accumulated energy counter starts fresh each day.
 **Requirements**: SCHED-01
 **Depends on:** Phase 5
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
-- [ ] 06-01-PLAN.md — EnergyResetConfig + chrono-tz deps + next_reset_instant() TDD (Wave 1)
-- [ ] 06-02-PLAN.md — reset_energy() on ModbusPoller + main.rs daily reset select! arm (Wave 2)
+- [x] 06-01-PLAN.md — EnergyResetConfig + chrono-tz deps + next_reset_instant() TDD (Wave 1)
+- [x] 06-02-PLAN.md — reset_energy() on ModbusPoller + main.rs daily reset select! arm (Wave 2)
