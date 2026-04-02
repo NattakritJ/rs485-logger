@@ -74,7 +74,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — systemd `.service` unit + udev rule `/dev/ttyRS485` + `install.sh` deployment script (Wave 1)
-- [ ] 04-02-PLAN.md — `Cross.toml` for aarch64/armv7 targets + `deploy/build-release.sh` + cross-compiled release binary verification (Wave 1)
+- [x] 04-02-PLAN.md — `Cross.toml` for aarch64/armv7 targets + `deploy/build-release.sh` + cross-compiled release binary verification (Wave 1)
 
 ## Progress
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-systemd-deployment plan 04-01 (Deployment Artifacts)
-last_updated: "2026-04-02T07:22:13.942Z"
+stopped_at: Completed 04-systemd-deployment plan 04-02 (Cross-Compilation Configuration) — ALL PLANS COMPLETE
+last_updated: "2026-04-02T07:25:50.350Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 50
 ---
 
@@ -52,6 +52,7 @@ Progress: [████████░░] ~50%
 | Phase 03-modbus-poll-loop P02 | 124 | 2 tasks | 4 files |
 | Phase 03-modbus-poll-loop P03 | 345 | 2 tasks | 2 files |
 | Phase 04-systemd-deployment P01 | 8 | 2 tasks | 3 files |
+| Phase 04-systemd-deployment P02 | 7 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 03-modbus-poll-loop]: shutdown_signal() pinned outside poll loop — one SIGTERM handler persists across ticks, not re-registered per-tick
 - [Phase 04-systemd-deployment]: SupplementaryGroups=dialout for serial port access without root — standard Raspberry Pi OS group
 - [Phase 04-systemd-deployment]: After=network-online.target ensures InfluxDB HTTP writes succeed on Pi boot before DHCP resolves
+- [Phase 04-systemd-deployment]: Cross.toml pre-build installs libudev-dev — tokio-serial requires this system library for arm targets
+- [Phase 04-systemd-deployment]: No OPENSSL env vars in Cross.toml — reqwest rustls feature (D-01) avoids OpenSSL during cross-compile
 
 ### Pending Todos
 
@@ -89,6 +92,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-02T07:22:13.939Z
-Stopped at: Completed 04-systemd-deployment plan 04-01 (Deployment Artifacts)
+Last session: 2026-04-02T07:25:50.347Z
+Stopped at: Completed 04-systemd-deployment plan 04-02 (Cross-Compilation Configuration) — ALL PLANS COMPLETE
 Resume file: None
