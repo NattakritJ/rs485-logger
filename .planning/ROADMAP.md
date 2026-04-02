@@ -96,3 +96,14 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — Write comprehensive README.md E2E manual (Wave 1)
+
+### Phase 6: Send command to Reset energy at the beginning of the day (00:00 Thailand timezone). Observe file ct_datasheet.txt for instruction.
+
+**Goal:** Schedule and send Modbus FC 0x42 (Reset Energy) to each configured PZEM-016 device once per day at 00:00 Asia/Bangkok time, so the accumulated energy counter starts fresh each day.
+**Requirements**: SCHED-01
+**Depends on:** Phase 5
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — EnergyResetConfig + chrono-tz deps + next_reset_instant() TDD (Wave 1)
+- [ ] 06-02-PLAN.md — reset_energy() on ModbusPoller + main.rs daily reset select! arm (Wave 2)
