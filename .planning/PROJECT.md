@@ -12,18 +12,19 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] TOML config format — idiomatic in Rust ecosystem (serde + toml crate) — Validated in Phase 1: foundation
+- [x] Per-device InfluxDB measurement (named) — measurement = device name, no tags needed — Validated in Phase 2: influxdb-integration
+- [x] Read all PZEM-016 data fields (voltage, current, power, energy, frequency, power factor) via Modbus RTU over RS485 — Validated in Phase 3: modbus-poll-loop
+- [x] Skip failed device reads, log the error, continue polling other devices — Validated in Phase 3: modbus-poll-loop
+- [x] Graceful SIGTERM/SIGINT shutdown (completes current poll cycle, exits cleanly) — Validated in Phase 3: modbus-poll-loop
+- [x] Structured logging to stderr (journald-compatible) with optional file appender — Validated in Phase 3: modbus-poll-loop
 
 ### Active
 
-- [ ] Read all PZEM-016 data fields (voltage, current, power, energy, frequency, power factor) via Modbus RTU over RS485
 - [ ] Support dynamic number of devices defined in TOML config (not hardcoded)
-- [ ] Assign a human-readable name to each device in config; use name as InfluxDB measurement name
 - [ ] Global polling interval configured in TOML
 - [ ] Write data to InfluxDB 3 (local or remote, URL + token + org + bucket in config)
-- [ ] Skip failed device reads, log the error, continue polling other devices
 - [ ] Run as a long-running daemon suitable for systemd
-- [ ] Write operational logs to both console and file (configurable paths/levels)
 
 ### Out of Scope
 
@@ -53,14 +54,16 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Rust for implementation | Low memory footprint on Pi, reliability, strong serial/async ecosystem | — Pending |
-| TOML config format | Idiomatic in Rust ecosystem (serde + toml crate), human-friendly | — Pending |
-| Per-device InfluxDB measurement (named) | Allows per-device dashboards and queries without tag filtering | — Pending |
-| Skip-and-log on device error | Partial data is better than no data; daemon must stay alive | — Pending |
-| Global polling interval | Simplifies scheduling; PZEM-016 response time makes per-device intervals unnecessary at typical intervals | — Pending |
+| Rust for implementation | Low memory footprint on Pi, reliability, strong serial/async ecosystem | Confirmed — binary compiles for aarch64 natively |
+| TOML config format | Idiomatic in Rust ecosystem (serde + toml crate), human-friendly | Confirmed — Phase 1 foundation |
+| Per-device InfluxDB measurement (named) | Allows per-device dashboards and queries without tag filtering | Confirmed — Phase 2 |
+| Skip-and-log on device error | Partial data is better than no data; daemon must stay alive | Confirmed — Phase 3; tracing::warn! + loop continues |
+| Global polling interval | Simplifies scheduling; PZEM-016 response time makes per-device intervals unnecessary at typical intervals | Confirmed — Phase 3 poll loop |
+| tokio-modbus 0.17 + SerialStream | Only async RTU crate integrating with tokio-serial; double-Result pattern confirmed | Confirmed — Phase 3; `rtu::attach(port)` + triple `?` |
+| tracing-subscriber with EnvFilter | journald-compatible structured logging; RUST_LOG + log_level config + file appender | Confirmed — Phase 3 |
 
 ---
-*Last updated: 2026-04-02 after initialization*
+*Last updated: 2026-04-02 — Phase 3 complete: full Modbus poll loop wired with signal handling and structured logging*
 
 ## Evolution
 
