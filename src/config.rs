@@ -64,6 +64,11 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
         "influxdb.token is empty — set a Bearer token"
     );
     anyhow::ensure!(
+        cfg.influxdb.database.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'),
+        "influxdb.database '{}' contains invalid characters (use only alphanumeric, underscore, dash)",
+        cfg.influxdb.database
+    );
+    anyhow::ensure!(
         !cfg.devices.is_empty(),
         "device list is empty — add at least one [[devices]] entry"
     );
@@ -284,6 +289,75 @@ name = "solar_panel"
     fn test_load_config_file_not_found() {
         let result = load_config("nonexistent.toml");
         assert!(result.is_err(), "load_config should return Err for missing file");
+    }
+
+    // --- Database name validation (HIGH-03) ---
+
+    fn make_cfg_with_database(database: &str) -> AppConfig {
+        AppConfig {
+            poll_interval_secs: 10,
+            serial: SerialConfig {
+                port: "/dev/ttyUSB0".to_string(),
+                baud_rate: 9600,
+            },
+            influxdb: InfluxConfig {
+                url: "http://localhost:8086".to_string(),
+                token: "my-token".to_string(),
+                database: database.to_string(),
+            },
+            devices: vec![DeviceConfig { address: 1, name: "meter".to_string() }],
+            log_file: None,
+            log_level: None,
+            energy_reset: None,
+        }
+    }
+
+    #[test]
+    fn test_database_name_with_slash_rejected() {
+        let cfg = make_cfg_with_database("power/test");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_database_name_with_space_rejected() {
+        let cfg = make_cfg_with_database("my database");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_database_name_with_question_mark_rejected() {
+        let cfg = make_cfg_with_database("power?db=x");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_database_name_alphanumeric_underscore_dash_passes() {
+        for name in &["power", "power_test", "my-db", "solar_2026", "my-db_01"] {
+            let cfg = make_cfg_with_database(name);
+            assert!(
+                validate_config(&cfg).is_ok(),
+                "Database name '{}' should pass validation",
+                name
+            );
+        }
     }
 
     // --- T1: Device name validation (HIGH-02) ---
