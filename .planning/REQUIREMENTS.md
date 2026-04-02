@@ -16,8 +16,8 @@
 ### Polling
 
 - [x] **POLL-01**: Daemon reads all six PZEM-016 fields (voltage, current, power, energy, frequency, power factor) per device via Modbus RTU FC 0x04
-- [ ] **POLL-02**: Daemon polls all configured devices sequentially (never concurrently) on every interval tick
-- [ ] **POLL-03**: Daemon skips a failed device read (timeout, CRC error, etc.), logs the error, and continues polling remaining devices without restarting
+- [x] **POLL-02**: Daemon polls all configured devices sequentially (never concurrently) on every interval tick
+- [x] **POLL-03**: Daemon skips a failed device read (timeout, CRC error, etc.), logs the error, and continues polling remaining devices without restarting
 
 ### Storage
 
@@ -73,8 +73,8 @@
 | CFG-04 | Phase 1 | Complete |
 | CFG-05 | Phase 1 | Complete |
 | POLL-01 | Phase 2 | Complete |
-| POLL-02 | Phase 3 | Pending |
-| POLL-03 | Phase 3 | Pending |
+| POLL-02 | Phase 3 | Complete |
+| POLL-03 | Phase 3 | Complete |
 | STOR-01 | Phase 2 | Pending |
 | STOR-02 | Phase 2 | Pending |
 | STOR-03 | Phase 2 | Pending |

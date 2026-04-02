@@ -57,7 +57,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — `ModbusPoller` TDD: SerialStream open-once, set_slave(), FC 0x04 read, 500ms timeout (Wave 1)
-- [ ] 03-02-PLAN.md — Main poll loop: tokio::time::interval, sequential devices, skip-and-warn on error, InfluxDB write per device (Wave 2)
+- [x] 03-02-PLAN.md — Main poll loop: tokio::time::interval, sequential devices, skip-and-warn on error, InfluxDB write per device (Wave 2)
 - [ ] 03-03-PLAN.md — Signal handling (SIGTERM/SIGINT graceful exit) + tracing-subscriber init + optional file appender (Wave 3)
 
 ### Phase 4: Systemd Deployment
