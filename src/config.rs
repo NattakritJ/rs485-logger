@@ -8,6 +8,9 @@ pub struct AppConfig {
     pub serial: SerialConfig,
     pub influxdb: InfluxConfig,
     pub devices: Vec<DeviceConfig>,
+    // OPS-03: optional logging config
+    pub log_file: Option<String>,   // e.g. "/var/log/rs485-logger/rs485.log"
+    pub log_level: Option<String>,  // e.g. "debug", "info", "warn" — default "info"
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -125,6 +128,8 @@ name = "grid_meter"
                 database: "power".to_string(),
             },
             devices: vec![],
+            log_file: None,
+            log_level: None,
         };
         let err = validate_config(&cfg).unwrap_err();
         let msg = err.to_string().to_lowercase();
