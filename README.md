@@ -13,6 +13,7 @@ Key design decisions:
 - **Single serial bus, sequential polling** — all PZEM-016 devices share one USB-RS485 adapter; they are polled one at a time to avoid bus contention.
 - **One InfluxDB measurement per device** — each device's data lands in its own named measurement (e.g. `solar_panel`, `grid_meter`) for clean querying.
 - **Fault-tolerant** — if one device times out or goes offline, the daemon logs a warning and continues polling the remaining devices; no data gaps for healthy devices.
+- **Self-recovering** — after 10 consecutive poll cycles where every device fails (e.g. serial adapter disconnected), the daemon exits cleanly so systemd's `Restart=always` restarts it and re-opens the port.
 
 ---
 
@@ -102,6 +103,8 @@ After installing the udev rule (see [Section 10](#10-udev-rule-stable-device-pat
 
 Create a `config.toml` file based on the annotated example below. When running under systemd, place it at `/etc/rs485-logger/config.toml`.
 
+> **Security:** `config.toml` is listed in `.gitignore` — it contains your InfluxDB API token and must not be committed to version control. Use `config.toml.example` as a template.
+
 ```toml
 # How often to poll all devices (seconds). Minimum: 1. Typical: 10.
 poll_interval_secs = 10
@@ -132,7 +135,7 @@ database = "power"
 # Each device lands in its own InfluxDB measurement named by the `name` field.
 [[devices]]
 address = 1              # Modbus slave address (1–247). Must be unique per device.
-name = "solar_panel"     # InfluxDB measurement name. Use snake_case, no spaces.
+name = "solar_panel"     # InfluxDB measurement name. Alphanumeric + underscore only (no spaces or commas).
 
 [[devices]]
 address = 2
@@ -159,10 +162,10 @@ name = "grid_meter"
 | `serial.baud_rate`          | `u32`    | ✓        | —        | `9600` for PZEM-016 (factory default)              |
 | `influxdb.url`              | `string` | ✓        | —        | Base URL, no trailing slash                        |
 | `influxdb.token`            | `string` | ✓        | —        | Bearer token from InfluxDB UI                      |
-| `influxdb.database`         | `string` | ✓        | —        | Database/bucket name                               |
+| `influxdb.database`         | `string` | ✓        | —        | Database/bucket name — alphanumeric, `_`, `-` only |
 | `devices[].address`         | `u8`     | ✓        | —        | Modbus address 1–247; must be unique               |
-| `devices[].name`            | `string` | ✓        | —        | InfluxDB measurement name (snake_case recommended) |
-| `log_file`                  | `string` | —        | none     | Optional file path for persistent log output       |
+| `devices[].name`            | `string` | ✓        | —        | InfluxDB measurement name — alphanumeric and `_` only (no spaces, commas, or special chars) |
+| `log_file`                  | `string` | —        | none     | Optional file path for persistent log output. Files rotate daily — a date suffix is appended (e.g. `rs485.log.2026-04-03`). |
 | `log_level`                 | `string` | —        | `"info"` | `error` / `warn` / `info` / `debug` / `trace`      |
 | `energy_reset.enabled`      | `bool`   | —        | —        | Set `false` to disable without removing the section |
 | `energy_reset.timezone`     | `string` | —        | —        | IANA timezone, e.g. `"Asia/Bangkok"`, `"UTC"`      |
@@ -326,6 +329,36 @@ If `[energy_reset]` is omitted, the startup and reset log lines are absent and t
 
 Each device is polled in order, every `poll_interval_secs` seconds. A device that fails to respond produces a `WARN` and the daemon moves on to the next device.
 
+#### Fault and recovery log patterns
+
+When a device times out:
+```
+WARN Device poll failed, skipping device=solar_panel error=Timeout polling device 'solar_panel'
+```
+
+When InfluxDB becomes unreachable (first failure only — subsequent failures are suppressed):
+```
+WARN InfluxDB write failed — suppressing further warnings until restored device=solar_panel error=...
+```
+
+When InfluxDB recovers:
+```
+INFO InfluxDB connection restored
+```
+
+When all devices fail 10 consecutive poll cycles (triggers systemd restart):
+```
+WARN All devices failed this poll cycle consecutive_failures=1
+...
+WARN All devices failed this poll cycle consecutive_failures=10
+ERROR All devices failed 10 consecutive polls — exiting for systemd restart consecutive_failures=10
+```
+
+System clock sanity warning (logged at most once if the Pi clock is wrong at boot):
+```
+WARN System clock appears incorrect (before 2024-01-01) — data may have wrong timestamps timestamp_secs=...
+```
+
 ---
 
 ## Verifying Data in InfluxDB
@@ -404,7 +437,12 @@ ls -la /dev/ttyRS485   # symlink should now appear
 | All devices show timeout but wiring looks correct | Bus noise or missing termination                          | Add a 120Ω resistor across A/B at far end; reduce cable length                             |
 | `InfluxDB write failed: HTTP 401`                 | Expired or incorrect API token                            | Regenerate token in InfluxDB UI; update `influxdb.token` in `config.toml`; restart daemon  |
 | `InfluxDB write failed: connection refused`       | InfluxDB not running, or wrong URL                        | Check InfluxDB service status; verify `influxdb.url` in config (no trailing slash)         |
-| Daemon crashes immediately on startup             | Config parse error                                        | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml`       |
+| InfluxDB write errors logged once then silent     | Expected — suppression is intentional                     | First failure logs `WARN`; subsequent ones are suppressed until connectivity is restored; `INFO InfluxDB connection restored` appears on recovery |
+| Daemon crashes immediately on startup             | Config parse error or invalid field value                 | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml`       |
+| `device name '...' contains invalid characters`   | Device name has spaces, commas, or special chars          | Use only alphanumeric characters and underscores in `devices[].name` (e.g. `solar_panel`)  |
+| `influxdb.database '...' contains invalid characters` | Database name has slashes, spaces, or special chars   | Use only alphanumeric characters, underscores, and dashes in `influxdb.database`           |
+| `Unknown timezone '...' in energy_reset`          | Unrecognised IANA timezone string                         | Use a valid IANA name from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g. `"Asia/Bangkok"`, `"UTC"`) |
+| Daemon keeps restarting via systemd               | All devices failing 10+ consecutive polls; intentional exit | Check serial adapter is plugged in; verify RS485 wiring; check `journalctl -u rs485-logger` for the `exiting for systemd restart` error |
 | Daemon starts but no data in InfluxDB             | Writes are silently failing                               | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines               |
 | No data after reboot                              | systemd unit not enabled                                  | Run `sudo systemctl enable rs485-logger`                                                   |
 | 32-bit word order produces wrong values           | Hardware word-order deviation                             | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings      |
@@ -419,6 +457,24 @@ You can run `rs485-logger` directly to test a config file before relying on syst
 
 # Or test the installed binary against the system config:
 rs485-logger --config /etc/rs485-logger/config.toml
+```
+
+#### `--clear` flag (manual energy reset)
+
+The `--clear` flag sends an energy reset command to every configured device and exits immediately, without starting the poll loop. Useful for manually zeroing energy counters outside of the scheduled daily reset:
+
+```bash
+rs485-logger --config /etc/rs485-logger/config.toml --clear
+```
+
+Output:
+
+```
+Energy reset sending command device=solar_panel
+Energy reset OK device=solar_panel
+Energy reset sending command device=grid_meter
+Energy reset OK device=grid_meter
+--clear mode: done
 ```
 
 ---
