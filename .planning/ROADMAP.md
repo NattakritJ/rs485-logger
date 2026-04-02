@@ -86,3 +86,13 @@ Plans:
 | 2. InfluxDB Integration | 0/2 | Not started | - |
 | 3. Modbus + Poll Loop | 3/3 | Complete   | 2026-04-02 |
 | 4. Systemd Deployment | 0/2 | Not started | - |
+
+### Phase 5: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
+
+**Goal:** Write a standalone, end-to-end README.md that takes a user from hardware unboxing through PZEM-016 wiring, RS485 daisy-chain topology, Raspberry Pi connection, config.toml setup, building and deploying the binary, running the systemd daemon, verifying data in InfluxDB 3, and troubleshooting common failure modes — no source code reading required.
+**Requirements**: DOC-01
+**Depends on:** Phase 4
+**Plans:** 1 plan
+
+Plans:
+- [ ] 05-01-PLAN.md — Write comprehensive README.md E2E manual (Wave 1)
