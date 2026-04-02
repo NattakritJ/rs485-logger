@@ -21,12 +21,12 @@ A focused, 4-phase build: stand up the Rust project foundation with config parsi
   1. `cargo test` passes with a sample `config.toml` — device list, serial config, InfluxDB endpoint all deserialize correctly
   2. `decode_registers()` unit test passes: known raw register bytes (from PZEM-016 datasheet) produce correct voltage/current/power/energy/frequency/power_factor values with correct scaling and low-word-first 32-bit reconstruction
   3. Config validation rejects bad input (empty device list, malformed URL, missing token) with a clear error message at startup, not a panic
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: Cargo.toml, project skeleton (`main.rs`, `config.rs`, `types.rs`)
-- [ ] 01-02: Config structs + TOML parsing + startup validation
-- [ ] 01-03: `PowerReading` struct + `decode_registers()` + unit tests
+- [ ] 01-01-PLAN.md — Project skeleton: Cargo.toml + src stubs that compile (Wave 1)
+- [ ] 01-02-PLAN.md — Config structs + TOML parsing + startup validation TDD (Wave 2)
+- [ ] 01-03-PLAN.md — PowerReading struct + decode_registers() TDD (Wave 2, parallel with 01-02)
 
 ### Phase 2: InfluxDB Integration
 **Goal**: Build the line protocol formatter and InfluxDB 3 HTTP write client; validate end-to-end write path against a local InfluxDB instance using hardcoded `PowerReading` values.
