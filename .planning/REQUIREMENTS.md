@@ -7,11 +7,11 @@
 
 ### Config
 
-- [ ] **CFG-01**: Operator can define device list (Modbus address + human-readable name) in a TOML config file
-- [ ] **CFG-02**: Operator can configure serial port path, baud rate, and parity in TOML
-- [ ] **CFG-03**: Operator can configure InfluxDB 3 endpoint URL, bearer token, and database name in TOML
-- [ ] **CFG-04**: Operator can set a global polling interval (seconds) in TOML
-- [ ] **CFG-05**: Daemon validates config at startup and emits clear error messages for invalid/missing values before entering the poll loop
+- [x] **CFG-01**: Operator can define device list (Modbus address + human-readable name) in a TOML config file
+- [x] **CFG-02**: Operator can configure serial port path, baud rate, and parity in TOML
+- [x] **CFG-03**: Operator can configure InfluxDB 3 endpoint URL, bearer token, and database name in TOML
+- [x] **CFG-04**: Operator can set a global polling interval (seconds) in TOML
+- [x] **CFG-05**: Daemon validates config at startup and emits clear error messages for invalid/missing values before entering the poll loop
 
 ### Polling
 
@@ -67,11 +67,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CFG-01 | Phase 1 | Pending |
-| CFG-02 | Phase 1 | Pending |
-| CFG-03 | Phase 1 | Pending |
-| CFG-04 | Phase 1 | Pending |
-| CFG-05 | Phase 1 | Pending |
+| CFG-01 | Phase 1 | Complete |
+| CFG-02 | Phase 1 | Complete |
+| CFG-03 | Phase 1 | Complete |
+| CFG-04 | Phase 1 | Complete |
+| CFG-05 | Phase 1 | Complete |
 | POLL-01 | Phase 2 | Pending |
 | POLL-02 | Phase 3 | Pending |
 | POLL-03 | Phase 3 | Pending |

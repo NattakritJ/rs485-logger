@@ -6,7 +6,7 @@ A focused, 4-phase build: stand up the Rust project foundation with config parsi
 
 ## Phases
 
-- [ ] **Phase 1: Foundation** - Config parsing, data types, and register decoder — fully unit-testable, no hardware or network required
+- [x] **Phase 1: Foundation** - Config parsing, data types, and register decoder — fully unit-testable, no hardware or network required (completed 2026-04-02)
 - [ ] **Phase 2: InfluxDB Integration** - Line protocol builder and HTTP write client — validates data destination against a local InfluxDB instance before hardware is needed
 - [ ] **Phase 3: Modbus + Poll Loop** - Hardware integration, full polling loop, error handling, logging, and graceful shutdown
 - [ ] **Phase 4: Systemd Deployment** - Production packaging: systemd service unit, udev stable device naming, serial permissions, and cross-compilation
@@ -24,9 +24,9 @@ A focused, 4-phase build: stand up the Rust project foundation with config parsi
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project skeleton: Cargo.toml + src stubs that compile (Wave 1)
-- [ ] 01-02-PLAN.md — Config structs + TOML parsing + startup validation TDD (Wave 2)
-- [ ] 01-03-PLAN.md — PowerReading struct + decode_registers() TDD (Wave 2, parallel with 01-02)
+- [x] 01-01-PLAN.md — Project skeleton: Cargo.toml + src stubs that compile (Wave 1)
+- [x] 01-02-PLAN.md — Config structs + TOML parsing + startup validation TDD (Wave 2)
+- [x] 01-03-PLAN.md — PowerReading struct + decode_registers() TDD (Wave 2, parallel with 01-02)
 
 ### Phase 2: InfluxDB Integration
 **Goal**: Build the line protocol formatter and InfluxDB 3 HTTP write client; validate end-to-end write path against a local InfluxDB instance using hardcoded `PowerReading` values.
@@ -82,7 +82,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Not started | - |
+| 1. Foundation | 3/3 | Complete   | 2026-04-02 |
 | 2. InfluxDB Integration | 0/2 | Not started | - |
 | 3. Modbus + Poll Loop | 0/3 | Not started | - |
 | 4. Systemd Deployment | 0/2 | Not started | - |
