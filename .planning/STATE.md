@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 04-systemd-deployment plan 04-02 (Cross-Compilation Configuration) — ALL PLANS COMPLETE
-last_updated: "2026-04-02T07:25:50.350Z"
+stopped_at: Completed 05-readme-manual plan 05-01 — awaiting human verification at checkpoint
+last_updated: "2026-04-02T08:30:00.612Z"
 last_activity: 2026-04-02
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_phases: 5
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
   percent: 50
 ---
 
@@ -53,6 +53,7 @@ Progress: [████████░░] ~50%
 | Phase 03-modbus-poll-loop P03 | 345 | 2 tasks | 2 files |
 | Phase 04-systemd-deployment P01 | 8 | 2 tasks | 3 files |
 | Phase 04-systemd-deployment P02 | 7 | 2 tasks | 2 files |
+| Phase 05-readme-manual P01 | 3 | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,12 @@ Recent decisions affecting current work:
 - [Phase 04-systemd-deployment]: After=network-online.target ensures InfluxDB HTTP writes succeed on Pi boot before DHCP resolves
 - [Phase 04-systemd-deployment]: Cross.toml pre-build installs libudev-dev — tokio-serial requires this system library for arm targets
 - [Phase 04-systemd-deployment]: No OPENSSL env vars in Cross.toml — reqwest rustls feature (D-01) avoids OpenSSL during cross-compile
+- [Phase 05-readme-manual]: README uses <PI_IP> and YOUR_TOKEN as only placeholder variables — all other commands are runnable as-is
+- [Phase 05-readme-manual]: Fixed: main.rs hardcoded config.toml path — added --config CLI arg parsing so systemd service ExecStart flag is honoured
+
+### Roadmap Evolution
+
+- Phase 5 added: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
 
 ### Pending Todos
 
@@ -92,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-02T07:25:50.347Z
-Stopped at: Completed 04-systemd-deployment plan 04-02 (Cross-Compilation Configuration) — ALL PLANS COMPLETE
+Last session: 2026-04-02T08:30:00.608Z
+Stopped at: Completed 05-readme-manual plan 05-01 — awaiting human verification at checkpoint
 Resume file: None
