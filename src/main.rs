@@ -36,9 +36,27 @@ async fn shutdown_signal() {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
+    // Parse --config <path> from CLI args (used by systemd ExecStart).
+    // Falls back to "config.toml" in the current directory for local testing.
+    let config_path = {
+        let mut args = std::env::args().skip(1);
+        let mut path = "config.toml".to_string();
+        while let Some(arg) = args.next() {
+            if arg == "--config" {
+                if let Some(p) = args.next() {
+                    path = p;
+                } else {
+                    eprintln!("Fatal: --config requires a path argument");
+                    std::process::exit(1);
+                }
+            }
+        }
+        path
+    };
+
     // Load config first — use eprintln! for pre-logging errors (OPS-02/OPS-03
     // require the config to know whether to activate file logging).
-    let cfg = load_config("config.toml").unwrap_or_else(|e| {
+    let cfg = load_config(&config_path).unwrap_or_else(|e| {
         eprintln!("Fatal: failed to load config: {e}");
         std::process::exit(1);
     });
