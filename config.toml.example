@@ -1,0 +1,48 @@
+# How often to poll all devices (seconds). Minimum: 1. Typical: 10.
+poll_interval_secs = 10
+
+# Optional: override log verbosity.
+# Values: "error", "warn", "info" (default), "debug", "trace"
+# NOTE: This key must appear before any [[devices]] blocks.
+# In TOML, keys placed after [[array]] headers belong to that array entry, not the root.
+log_level = "info"
+
+# Optional: write logs to a file in addition to the systemd journal.
+# The directory must be writable by the rs485logger service user.
+# NOTE: Must also appear before any [[devices]] blocks (same TOML rule as above).
+# log_file = "/var/log/rs485-logger/rs485.log"
+
+[serial]
+# Serial port path.
+# Use /dev/ttyRS485 after the udev rule is in place, or /dev/ttyUSB0 for testing.
+port = "/dev/ttyRS485"
+# Baud rate. PZEM-016 factory default is 9600. Do not change unless you have
+# explicitly re-configured the device.
+baud_rate = 9600
+
+[influxdb]
+# InfluxDB 3 base URL — no trailing slash.
+url = "http://192.168.1.10:8181"
+# InfluxDB 3 API token.
+# Get this from: InfluxDB UI → Load Data → API Tokens → Generate API Token.
+token = "YOUR_INFLUXDB_TOKEN_HERE"
+# Target database (bucket) name.
+# Use only alphanumeric characters, underscores, and dashes.
+# The database is created automatically on the first write if it does not exist.
+database = "solar"
+
+# One [[devices]] block per PZEM-016.
+# Each device lands in its own InfluxDB measurement named by the `name` field.
+[[devices]]
+address = 1              # Modbus slave address (1–247). Must be unique per device.
+name = "floor_1"         # InfluxDB measurement name. Use alphanumeric and underscore only.
+
+[[devices]]
+address = 2
+name = "floor_2"
+
+# Optional: daily energy reset (sends Modbus FC 0x42 to all devices at midnight).
+# [energy_reset]
+# enabled = true
+# timezone = "Asia/Bangkok"   # IANA timezone name
+# time = "00:00"              # Time to reset (HH:MM, 24-hour)
