@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-02)
 Phase: 4
 Plan: Not started
 Status: Phase complete — ready for verification
-Last activity: 2026-04-02
+Last activity: 2026-04-02 - Completed quick task 260402-msc: Create ARCHITECTURE.md
 
 Progress: [████████░░] ~50%
 
@@ -96,6 +96,12 @@ None.
 ### Blockers/Concerns
 
 - PZEM-016 register map (low-word-first 32-bit values) is MEDIUM confidence — must verify against physical hardware in Phase 3
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260402-msc | Create ARCHITECTURE.md to explain how the program works with Rust language explanations for developers unfamiliar with Rust | 2026-04-02 | 2d54d9f | [260402-msc-create-architecture-md-to-explain-how-th](./quick/260402-msc-create-architecture-md-to-explain-how-th/) |
 
 ## Session Continuity
 
