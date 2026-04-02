@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 6 context gathered
-last_updated: "2026-04-02T14:09:51.530Z"
-last_activity: "2026-04-02 - Completed quick task 260402-msc: Create ARCHITECTURE.md"
+status: complete
+stopped_at: Phase 6 complete — all phases done
+last_updated: "2026-04-03T00:00:00.000Z"
+last_activity: "2026-04-03 - Phase 6 daily energy reset implemented (scheduler.rs, poller.reset_energy, main.rs select! arm)"
 progress:
   total_phases: 6
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
-  percent: 50
+  completed_phases: 6
+  total_plans: 13
+  completed_plans: 13
+  percent: 100
 ---
 
 # Project State
@@ -21,24 +21,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
-**Current focus:** Phase 03 — modbus-poll-loop
+**Current focus:** Complete — all 6 phases shipped.
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-02 - Completed quick task 260402-msc: Create ARCHITECTURE.md
+Phase: 6
+Plan: All complete
+Status: Milestone complete
+Last activity: 2026-04-03 - Phase 6 daily energy reset implemented (scheduler.rs, poller.reset_energy, main.rs select! arm)
 
-Progress: [████████░░] ~50%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 5
+- Total plans completed: 13
 - Average duration: ~10 min/plan
-- Total execution time: ~50 min
+- Total execution time: ~130 min
 
 **By Phase:**
 
@@ -54,6 +54,8 @@ Progress: [████████░░] ~50%
 | Phase 04-systemd-deployment P01 | 8 | 2 tasks | 3 files |
 | Phase 04-systemd-deployment P02 | 7 | 2 tasks | 2 files |
 | Phase 05-readme-manual P01 | 3 | 1 tasks | 2 files |
+| Phase 06-daily-energy-reset P01 | — | 2 tasks | 3 files |
+| Phase 06-daily-energy-reset P02 | — | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,7 +85,10 @@ Recent decisions affecting current work:
 - [Phase 04-systemd-deployment]: Cross.toml pre-build installs libudev-dev — tokio-serial requires this system library for arm targets
 - [Phase 04-systemd-deployment]: No OPENSSL env vars in Cross.toml — reqwest rustls feature (D-01) avoids OpenSSL during cross-compile
 - [Phase 05-readme-manual]: README uses <PI_IP> and YOUR_TOKEN as only placeholder variables — all other commands are runnable as-is
-- [Phase 05-readme-manual]: Fixed: main.rs hardcoded config.toml path — added --config CLI arg parsing so systemd service ExecStart flag is honoured
+- [Phase 06-daily-energy-reset]: next_reset_instant() always recomputes from Utc::now() after each fire — prevents drift across DST transitions
+- [Phase 06-daily-energy-reset]: far_future() parks reset_sleep arm when disabled — no conditional select! needed
+- [Phase 06-daily-energy-reset]: reset_energy() returns Ok(()) on 0xC2 device error — skip-and-log per D-12
+- [Phase 06-daily-energy-reset]: chrono-tz IANA timezone parsing at startup — config error logged as WARN, energy reset disabled gracefully
 
 ### Roadmap Evolution
 
@@ -96,16 +101,17 @@ None.
 
 ### Blockers/Concerns
 
-- PZEM-016 register map (low-word-first 32-bit values) is MEDIUM confidence — must verify against physical hardware in Phase 3
+None — milestone complete.
 
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260402-msc | Create ARCHITECTURE.md to explain how the program works with Rust language explanations for developers unfamiliar with Rust | 2026-04-02 | 2d54d9f | [260402-msc-create-architecture-md-to-explain-how-th](./quick/260402-msc-create-architecture-md-to-explain-how-th/) |
+| 260403-0gn | Add --clear flag to send energy reset to all devices and exit immediately | 2026-04-03 | b53d656 | [260403-0gn-add-clear-parameter-for-energy-clear-mod](./quick/260403-0gn-add-clear-parameter-for-energy-clear-mod/) |
 
 ## Session Continuity
 
-Last session: 2026-04-02T14:09:51.520Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-send-command-to-reset-energy-at-the-beginning-of-the-day-00-00-thailand-timezone-observe-file-ct-datasheet-txt-for-instruction/06-CONTEXT.md
+Last session: 2026-04-03T17:21:46Z
+Stopped at: Quick task 260403-0gn complete — --clear flag added to main.rs
+Resume file: N/A — all phases complete
