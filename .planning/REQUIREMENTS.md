@@ -31,7 +31,7 @@
 - [x] **OPS-01**: Daemon handles SIGTERM and SIGINT gracefully — completes the current poll cycle and exits cleanly
 - [x] **OPS-02**: Daemon emits structured logs to stdout/stderr (compatible with systemd journald)
 - [x] **OPS-03**: Daemon optionally writes logs to a file at a configurable path and log level
-- [ ] **OPS-04**: A systemd `.service` unit file is included in the repository with `Restart=always` and `RestartSec=5`
+- [x] **OPS-04**: A systemd `.service` unit file is included in the repository with `Restart=always` and `RestartSec=5`
 
 ## v2 Requirements
 
@@ -82,7 +82,7 @@
 | OPS-01 | Phase 3 | Complete |
 | OPS-02 | Phase 3 | Complete |
 | OPS-03 | Phase 3 | Complete |
-| OPS-04 | Phase 4 | Pending |
+| OPS-04 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 16 total

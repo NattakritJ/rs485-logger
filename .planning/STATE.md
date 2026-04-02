@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 03-modbus-poll-loop plan 03-03 (Signal Handling & Structured Logging)
-last_updated: "2026-04-02T07:02:18.098Z"
+stopped_at: Completed 04-systemd-deployment plan 04-01 (Deployment Artifacts)
+last_updated: "2026-04-02T07:22:13.942Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 50
 ---
 
@@ -51,6 +51,7 @@ Progress: [████████░░] ~50%
 | Phase 03-modbus-poll-loop P01 | 698 | 2 tasks | 2 files |
 | Phase 03-modbus-poll-loop P02 | 124 | 2 tasks | 4 files |
 | Phase 03-modbus-poll-loop P03 | 345 | 2 tasks | 2 files |
+| Phase 04-systemd-deployment P01 | 8 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 03-modbus-poll-loop]: InfluxDB write errors WARN (not ERROR) — recoverable; device poll errors WARN + continue (POLL-03)
 - [Phase 03-modbus-poll-loop]: Config loaded before tracing init (eprintln! for errors) — enables file appender from config without double-init
 - [Phase 03-modbus-poll-loop]: shutdown_signal() pinned outside poll loop — one SIGTERM handler persists across ticks, not re-registered per-tick
+- [Phase 04-systemd-deployment]: SupplementaryGroups=dialout for serial port access without root — standard Raspberry Pi OS group
+- [Phase 04-systemd-deployment]: After=network-online.target ensures InfluxDB HTTP writes succeed on Pi boot before DHCP resolves
 
 ### Pending Todos
 
@@ -86,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-02T06:52:19.330Z
-Stopped at: Completed 03-modbus-poll-loop plan 03-03 (Signal Handling & Structured Logging)
+Last session: 2026-04-02T07:22:13.939Z
+Stopped at: Completed 04-systemd-deployment plan 04-01 (Deployment Artifacts)
 Resume file: None
