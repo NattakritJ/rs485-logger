@@ -258,3 +258,103 @@ name = "solar_panel"
         assert!(result.is_err(), "load_config should return Err for missing file");
     }
 }
+
+#[cfg(test)]
+mod log_level_tests {
+    use super::*;
+
+    #[test]
+    fn test_log_level_parsed_as_warn() {
+        // IMPORTANT: log_level must appear BEFORE [[devices]] blocks.
+        // In TOML, keys after a [[array-of-tables]] header belong to that
+        // array entry, not the root — placing log_level after [[devices]]
+        // silently puts it inside the device table and leaves AppConfig.log_level = None.
+        let cfg_str = r#"
+poll_interval_secs = 10
+log_level = "warn"
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
+        assert_eq!(cfg.log_level, Some("warn".to_string()),
+            "log_level should be Some(\"warn\") but got {:?}", cfg.log_level);
+    }
+
+    #[test]
+    fn test_log_level_absent_is_none() {
+        let cfg_str = r#"
+poll_interval_secs = 10
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
+        assert_eq!(cfg.log_level, None,
+            "log_level should be None when absent but got {:?}", cfg.log_level);
+    }
+
+    #[test]
+    fn test_log_level_after_devices_is_not_parsed_as_root() {
+        // Regression guard: log_level placed AFTER [[devices]] in TOML is silently
+        // swallowed into the device table. It must appear BEFORE [[devices]] to reach
+        // AppConfig.log_level. This test documents the TOML scoping trap.
+        let cfg_str = r#"
+poll_interval_secs = 10
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+
+log_level = "warn"
+"#;
+        // log_level ends up inside devices[0], not at root — AppConfig.log_level stays None
+        let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
+        assert_eq!(
+            cfg.log_level, None,
+            "log_level after [[devices]] must NOT reach AppConfig.log_level (TOML scoping)"
+        );
+    }
+
+    #[test]
+    fn test_env_filter_from_warn_string() {
+        // Verify EnvFilter::try_new("warn") parses without error
+        let filter = tracing_subscriber::EnvFilter::try_new("warn")
+            .expect("'warn' should be a valid filter string");
+        let filter_str = format!("{}", filter);
+        assert!(
+            filter_str.contains("warn"),
+            "EnvFilter display should contain 'warn', got: {}", filter_str
+        );
+    }
+}
+

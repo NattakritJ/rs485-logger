@@ -64,12 +64,15 @@ async fn main() -> anyhow::Result<()> {
     // OPS-02: structured logging to stderr (journald compatible)
     // OPS-03: optional file appender from config
     // Determine log level: cfg.log_level > RUST_LOG env var > "info" fallback
-    let log_level = cfg.log_level.as_deref().unwrap_or("info");
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            tracing_subscriber::EnvFilter::try_new(log_level)
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
-        });
+    let env_filter = if let Some(ref level) = cfg.log_level {
+        // Config takes highest priority: use it directly, fall back to "info" if invalid
+        tracing_subscriber::EnvFilter::try_new(level)
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+    } else {
+        // No config value — honour RUST_LOG, then fall back to "info"
+        tracing_subscriber::EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+    };
 
     // _file_guard must outlive the entire main() so file logging continues
     // until the process exits.  Declared before the branch; assigned inside.
