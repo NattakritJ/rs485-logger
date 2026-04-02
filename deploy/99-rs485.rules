@@ -20,4 +20,4 @@
 # This rule matches the cp210x driver (SiLabs — most common cheap USB-RS485 adapter).
 # Change DRIVERS=="cp210x" to match your adapter's driver if needed.
 
-SUBSYSTEM=="tty", SUBSYSTEMS=="usb", DRIVERS=="cp210x", SYMLINK+="ttyRS485", MODE="0660", GROUP="dialout"
+SUBSYSTEM=="tty", SUBSYSTEMS=="usb", DRIVERS=="ch341", SYMLINK+="ttyRS485", MODE="0660", GROUP="dialout"
