@@ -53,12 +53,12 @@ Plans:
   3. Skip-and-continue: disconnect one PZEM-016 — daemon logs a `WARN`, continues polling other devices, and does not restart or crash
   4. SIGTERM: `systemctl stop` (or `kill -SIGTERM`) causes the daemon to complete the current poll cycle and exit cleanly within 5 seconds
   5. Log output: `journalctl` shows structured log lines with device name, measurement values, and any errors
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: `poller.rs` — `ModbusPoller` struct, `SerialStream` open-once, `set_slave()`, FC 0x04 read, 500ms timeout
-- [ ] 03-02: Main poll loop — `tokio::time::interval`, sequential device loop, skip-and-log on error, InfluxDB write per device
-- [ ] 03-03: Signal handling (SIGTERM/SIGINT), structured logging (`tracing` + `tracing-subscriber` + optional file appender), startup config validation
+- [ ] 03-01-PLAN.md — `ModbusPoller` TDD: SerialStream open-once, set_slave(), FC 0x04 read, 500ms timeout (Wave 1)
+- [ ] 03-02-PLAN.md — Main poll loop: tokio::time::interval, sequential devices, skip-and-warn on error, InfluxDB write per device (Wave 2)
+- [ ] 03-03-PLAN.md — Signal handling (SIGTERM/SIGINT graceful exit) + tracing-subscriber init + optional file appender (Wave 3)
 
 ### Phase 4: Systemd Deployment
 **Goal**: Package the daemon for production on Raspberry Pi — systemd service unit, stable `/dev/ttyRS485` udev symlink, serial port permissions, and cross-compiled release binary.
