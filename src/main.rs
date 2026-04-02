@@ -40,7 +40,7 @@ async fn shutdown_signal() {
 /// Returns a `tokio::time::Instant` far in the future (100 years).
 /// Used to park the reset arm when energy reset is disabled.
 fn far_future() -> tokio::time::Instant {
-    tokio::time::Instant::now() + std::time::Duration::from_secs(365 * 24 * 3600 * 100)
+    tokio::time::Instant::now() + std::time::Duration::from_secs(365 * 24 * 3600 * 10)
 }
 
 #[tokio::main(flavor = "current_thread")]
