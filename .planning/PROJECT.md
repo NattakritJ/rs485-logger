@@ -23,8 +23,9 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 
 - [ ] Support dynamic number of devices defined in TOML config (not hardcoded)
 - [ ] Global polling interval configured in TOML
-- [ ] Write data to InfluxDB 3 (local or remote, URL + token + org + bucket in config)
+- [ ] Write data to InfluxDB 3 (local or remote, URL + token + db in config)
 - [ ] Run as a long-running daemon suitable for systemd
+- [x] Daemon runs reliably under adverse conditions (HTTP timeouts, serial errors, config misuse) — Validated in Phase 7: daemon-reliability-hardening
 
 ### Out of Scope
 
@@ -63,7 +64,7 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 | tracing-subscriber with EnvFilter | journald-compatible structured logging; RUST_LOG + log_level config + file appender | Confirmed — Phase 3 |
 
 ---
-*Last updated: 2026-04-02 — Phase 3 complete: full Modbus poll loop wired with signal handling and structured logging*
+*Last updated: 2026-04-03 — Phase 7 complete: all 12 reliability findings resolved; daemon production-ready with HTTP timeouts, serial recovery, config validation hardening, daily log rotation, and InfluxDB health tracking*
 
 ## Evolution
 
