@@ -9,6 +9,7 @@
 `rs485-logger` is a lightweight system daemon written in Rust that continuously reads voltage, current, power, energy, frequency, and power factor from one or more PZEM-016 power meters connected in a Modbus RS485 daisy chain. It exists to fill the gap between cheap, widely available power meters and modern time-series infrastructure: the PZEM-016 has no network interface, so this daemon bridges it to InfluxDB 3 over HTTP.
 
 Key design decisions:
+
 - **Single serial bus, sequential polling** — all PZEM-016 devices share one USB-RS485 adapter; they are polled one at a time to avoid bus contention.
 - **One InfluxDB measurement per device** — each device's data lands in its own named measurement (e.g. `solar_panel`, `grid_meter`) for clean querying.
 - **Fault-tolerant** — if one device times out or goes offline, the daemon logs a warning and continues polling the remaining devices; no data gaps for healthy devices.
@@ -39,11 +40,11 @@ Key design decisions:
 
 The PZEM-016 has three connection points:
 
-| Terminal | Description |
-|----------|-------------|
-| **L / N** (power input) | Connect to the AC line you want to meter. The device needs AC power to operate. For 120V/240V single-phase: L = live, N = neutral. |
-| **CT clamp** | Clips around the **live wire (L) only** — does NOT break the circuit. The arrow on the CT body must point **away from the power source** (toward the load). |
-| **A / B** (RS485) | Differential data pair. A = D+ (positive), B = D− (negative). |
+| Terminal                | Description                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **L / N** (power input) | Connect to the AC line you want to meter. The device needs AC power to operate. For 120V/240V single-phase: L = live, N = neutral.                          |
+| **CT clamp**            | Clips around the **live wire (L) only** — does NOT break the circuit. The arrow on the CT body must point **away from the power source** (toward the load). |
+| **A / B** (RS485)       | Differential data pair. A = D+ (positive), B = D− (negative).                                                                                               |
 
 ### 4.2 USB-RS485 Adapter Wiring
 
@@ -68,6 +69,7 @@ Pi USB ── [USB-RS485 Adapter] ── A/B bus ┬── [PZEM-016  addr=1]
 ```
 
 To assign a unique address to each PZEM-016 **before** wiring them together:
+
 1. Connect one PZEM-016 at a time to the adapter.
 2. Use the PZEM Windows configuration software (or a Modbus address-change utility) to write a new address to register `0x0002`.
 3. Repeat for each device.
@@ -86,6 +88,7 @@ ls /dev/ttyUSB*
 ```
 
 To identify the port and confirm the driver:
+
 ```bash
 dmesg | tail -20
 # Look for lines containing "cp210x", "ch341", or "ftdi_sio" + port name
@@ -102,6 +105,10 @@ Create a `config.toml` file based on the annotated example below. When running u
 ```toml
 # How often to poll all devices (seconds). Minimum: 1. Typical: 10.
 poll_interval_secs = 10
+
+# Optional: override log verbosity.
+# Values: "error", "warn", "info" (default), "debug", "trace"
+# log_level = "debug"
 
 [serial]
 # Serial port path.
@@ -135,25 +142,31 @@ name = "grid_meter"
 # The directory must be writable by the rs485logger service user.
 # log_file = "/var/log/rs485-logger/rs485.log"
 
-# Optional: override log verbosity.
-# Values: "error", "warn", "info" (default), "debug", "trace"
-# log_level = "debug"
+# Optional: reset the energy counter on every device at a fixed time each day.
+# Omit this section entirely to disable the feature.
+# [energy_reset]
+# enabled = true
+# timezone = "Asia/Bangkok"   # IANA timezone name (e.g. "UTC", "Asia/Bangkok", "America/New_York")
+# time = "00:00"              # Wall-clock time in HH:MM (24-hour)
 ```
 
 ### Configuration Field Reference
 
-| Field | Type | Required | Default | Notes |
-|-------|------|----------|---------|-------|
-| `poll_interval_secs` | `u64` | ✓ | — | Seconds between full poll cycles. Minimum: 1. |
-| `serial.port` | `string` | ✓ | — | `/dev/ttyRS485` (with udev) or `/dev/ttyUSB0` |
-| `serial.baud_rate` | `u32` | ✓ | — | `9600` for PZEM-016 (factory default) |
-| `influxdb.url` | `string` | ✓ | — | Base URL, no trailing slash |
-| `influxdb.token` | `string` | ✓ | — | Bearer token from InfluxDB UI |
-| `influxdb.database` | `string` | ✓ | — | Database/bucket name |
-| `devices[].address` | `u8` | ✓ | — | Modbus address 1–247; must be unique |
-| `devices[].name` | `string` | ✓ | — | InfluxDB measurement name (snake_case recommended) |
-| `log_file` | `string` | — | none | Optional file path for persistent log output |
-| `log_level` | `string` | — | `"info"` | `error` / `warn` / `info` / `debug` / `trace` |
+| Field                       | Type     | Required | Default  | Notes                                              |
+| --------------------------- | -------- | -------- | -------- | -------------------------------------------------- |
+| `poll_interval_secs`        | `u64`    | ✓        | —        | Seconds between full poll cycles. Minimum: 1.      |
+| `serial.port`               | `string` | ✓        | —        | `/dev/ttyRS485` (with udev) or `/dev/ttyUSB0`      |
+| `serial.baud_rate`          | `u32`    | ✓        | —        | `9600` for PZEM-016 (factory default)              |
+| `influxdb.url`              | `string` | ✓        | —        | Base URL, no trailing slash                        |
+| `influxdb.token`            | `string` | ✓        | —        | Bearer token from InfluxDB UI                      |
+| `influxdb.database`         | `string` | ✓        | —        | Database/bucket name                               |
+| `devices[].address`         | `u8`     | ✓        | —        | Modbus address 1–247; must be unique               |
+| `devices[].name`            | `string` | ✓        | —        | InfluxDB measurement name (snake_case recommended) |
+| `log_file`                  | `string` | —        | none     | Optional file path for persistent log output       |
+| `log_level`                 | `string` | —        | `"info"` | `error` / `warn` / `info` / `debug` / `trace`      |
+| `energy_reset.enabled`      | `bool`   | —        | —        | Set `false` to disable without removing the section |
+| `energy_reset.timezone`     | `string` | —        | —        | IANA timezone, e.g. `"Asia/Bangkok"`, `"UTC"`      |
+| `energy_reset.time`         | `string` | —        | —        | Reset time in `HH:MM` 24-hour format, e.g. `"00:00"` |
 
 ---
 
@@ -293,11 +306,23 @@ sudo systemctl enable rs485-logger
 
 ```
 rs485-logger starting devices=2 interval_secs=10
+Next energy reset scheduled next_reset=2026-04-03T00:00:00+07:00
 Poll success device=solar_panel
 Poll success device=grid_meter
 Poll success device=solar_panel
 Poll success device=grid_meter
 ```
+
+When the daily reset fires:
+
+```
+Daily energy reset starting
+Energy reset OK device=solar_panel
+Energy reset OK device=grid_meter
+Next energy reset scheduled next_reset=2026-04-04T00:00:00+07:00
+```
+
+If `[energy_reset]` is omitted, the startup and reset log lines are absent and the daemon runs in poll-only mode.
 
 Each device is polled in order, every `poll_interval_secs` seconds. A device that fails to respond produces a `WARN` and the daemon moves on to the next device.
 
@@ -319,14 +344,14 @@ curl -s \
 
 Expected response: a JSON array with records containing the following fields (all as floats):
 
-| Field | Unit | Description |
-|-------|------|-------------|
-| `voltage` | V | RMS voltage |
-| `current` | A | RMS current |
-| `power` | W | Active power |
-| `energy` | Wh | Accumulated energy |
-| `frequency` | Hz | AC frequency |
-| `power_factor` | — | Power factor (0.0–1.0) |
+| Field          | Unit | Description            |
+| -------------- | ---- | ---------------------- |
+| `voltage`      | V    | RMS voltage            |
+| `current`      | A    | RMS current            |
+| `power`        | W    | Active power           |
+| `energy`       | Wh   | Accumulated energy     |
+| `frequency`    | Hz   | AC frequency           |
+| `power_factor` | —    | Power factor (0.0–1.0) |
 
 ---
 
@@ -344,11 +369,11 @@ udevadm info -a -n /dev/ttyUSB0 | grep -E 'DRIVERS|idVendor|idProduct'
 
 Look for the `DRIVERS` line in the `usb` subsystem block:
 
-| Value | Chip | Adapters |
-|-------|------|---------|
-| `cp210x` | SiLabs CP2102 / CP2104 | Most cheap Amazon/eBay USB-RS485 adapters |
-| `ch341` | WCH CH340 / CH341 | Common on blue USB-RS485 sticks |
-| `ftdi_sio` | FTDI FT232R / FT2232 | Higher-quality adapters |
+| Value      | Chip                   | Adapters                                  |
+| ---------- | ---------------------- | ----------------------------------------- |
+| `cp210x`   | SiLabs CP2102 / CP2104 | Most cheap Amazon/eBay USB-RS485 adapters |
+| `ch341`    | WCH CH340 / CH341      | Common on blue USB-RS485 sticks           |
+| `ftdi_sio` | FTDI FT232R / FT2232   | Higher-quality adapters                   |
 
 If your adapter uses `ch341` or `ftdi_sio`, open `deploy/99-rs485.rules` and change `DRIVERS=="cp210x"` to match before running `install.sh`:
 
@@ -370,19 +395,19 @@ ls -la /dev/ttyRS485   # symlink should now appear
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| `Failed to read config file: config.toml` | Config not found at expected path | Check that `/etc/rs485-logger/config.toml` exists and is readable by `rs485logger` user |
-| `Failed to open serial port '/dev/ttyRS485'` | Adapter not plugged in, or udev rule not loaded | Check `ls /dev/ttyUSB*`; run `sudo udevadm control --reload-rules && sudo udevadm trigger` |
-| `Permission denied: /dev/ttyRS485` | `rs485logger` user not in `dialout` group | Run `sudo usermod -aG dialout rs485logger` then `sudo systemctl restart rs485-logger` |
-| `Timeout polling device 'X'` | Wrong baud rate, wrong Modbus address, or wiring reversed | Verify `baud_rate = 9600`, confirm device address, try swapping A/B wires |
-| All devices show timeout but wiring looks correct | Bus noise or missing termination | Add a 120Ω resistor across A/B at far end; reduce cable length |
-| `InfluxDB write failed: HTTP 401` | Expired or incorrect API token | Regenerate token in InfluxDB UI; update `influxdb.token` in `config.toml`; restart daemon |
-| `InfluxDB write failed: connection refused` | InfluxDB not running, or wrong URL | Check InfluxDB service status; verify `influxdb.url` in config (no trailing slash) |
-| Daemon crashes immediately on startup | Config parse error | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml` |
-| Daemon starts but no data in InfluxDB | Writes are silently failing | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines |
-| No data after reboot | systemd unit not enabled | Run `sudo systemctl enable rs485-logger` |
-| 32-bit word order produces wrong values | Hardware word-order deviation | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings |
+| Symptom                                           | Likely Cause                                              | Fix                                                                                        |
+| ------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Failed to read config file: config.toml`         | Config not found at expected path                         | Check that `/etc/rs485-logger/config.toml` exists and is readable by `rs485logger` user    |
+| `Failed to open serial port '/dev/ttyRS485'`      | Adapter not plugged in, or udev rule not loaded           | Check `ls /dev/ttyUSB*`; run `sudo udevadm control --reload-rules && sudo udevadm trigger` |
+| `Permission denied: /dev/ttyRS485`                | `rs485logger` user not in `dialout` group                 | Run `sudo usermod -aG dialout rs485logger` then `sudo systemctl restart rs485-logger`      |
+| `Timeout polling device 'X'`                      | Wrong baud rate, wrong Modbus address, or wiring reversed | Verify `baud_rate = 9600`, confirm device address, try swapping A/B wires                  |
+| All devices show timeout but wiring looks correct | Bus noise or missing termination                          | Add a 120Ω resistor across A/B at far end; reduce cable length                             |
+| `InfluxDB write failed: HTTP 401`                 | Expired or incorrect API token                            | Regenerate token in InfluxDB UI; update `influxdb.token` in `config.toml`; restart daemon  |
+| `InfluxDB write failed: connection refused`       | InfluxDB not running, or wrong URL                        | Check InfluxDB service status; verify `influxdb.url` in config (no trailing slash)         |
+| Daemon crashes immediately on startup             | Config parse error                                        | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml`       |
+| Daemon starts but no data in InfluxDB             | Writes are silently failing                               | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines               |
+| No data after reboot                              | systemd unit not enabled                                  | Run `sudo systemctl enable rs485-logger`                                                   |
+| 32-bit word order produces wrong values           | Hardware word-order deviation                             | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings      |
 
 ### Manual Startup for Debugging
 
@@ -402,15 +427,15 @@ rs485-logger --config /etc/rs485-logger/config.toml
 
 This table documents the Modbus register layout used by the daemon for users who want to understand the raw data or write alternative tooling.
 
-| Register(s) | Field | Scale | Unit | Notes |
-|------------|-------|-------|------|-------|
-| `0x0000` | Voltage | ÷ 10 | V | Single 16-bit register |
-| `0x0001–0x0002` | Current | ÷ 1000 | A | 32-bit, **low-word-first** |
-| `0x0003–0x0004` | Power | ÷ 10 | W | 32-bit, **low-word-first** |
-| `0x0005–0x0006` | Energy | × 1 | Wh | 32-bit, **low-word-first** |
-| `0x0007` | Frequency | ÷ 10 | Hz | Single 16-bit register |
-| `0x0008` | Power Factor | ÷ 100 | — | Single 16-bit register; range 0.00–1.00 |
-| `0x0009` | Alarm status | — | — | Not logged by this daemon |
+| Register(s)     | Field        | Scale  | Unit | Notes                                   |
+| --------------- | ------------ | ------ | ---- | --------------------------------------- |
+| `0x0000`        | Voltage      | ÷ 10   | V    | Single 16-bit register                  |
+| `0x0001–0x0002` | Current      | ÷ 1000 | A    | 32-bit, **low-word-first**              |
+| `0x0003–0x0004` | Power        | ÷ 10   | W    | 32-bit, **low-word-first**              |
+| `0x0005–0x0006` | Energy       | × 1    | Wh   | 32-bit, **low-word-first**              |
+| `0x0007`        | Frequency    | ÷ 10   | Hz   | Single 16-bit register                  |
+| `0x0008`        | Power Factor | ÷ 100  | —    | Single 16-bit register; range 0.00–1.00 |
+| `0x0009`        | Alarm status | —      | —    | Not logged by this daemon               |
 
 > **Word order note:** The PZEM-016 encodes 32-bit values in **low-word-first** order (least significant 16-bit word at the lower register address). This deviates from the Modbus standard (big-endian, high-word-first). The daemon handles this automatically.
 

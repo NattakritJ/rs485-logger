@@ -1,11 +1,14 @@
 mod config;
 mod influx;
 mod poller;
+mod scheduler;
 mod types;
 
+use chrono::Utc;
 use config::load_config;
 use influx::InfluxWriter;
 use poller::ModbusPoller;
+use scheduler::next_reset_instant;
 
 /// Resolves when SIGTERM or SIGINT (Ctrl+C) is received.
 /// Pinned outside the poll loop so the signal subscription persists
@@ -32,6 +35,12 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
+}
+
+/// Returns a `tokio::time::Instant` far in the future (100 years).
+/// Used to park the reset arm when energy reset is disabled.
+fn far_future() -> tokio::time::Instant {
+    tokio::time::Instant::now() + std::time::Duration::from_secs(365 * 24 * 3600 * 100)
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -127,6 +136,40 @@ async fn main() -> anyhow::Result<()> {
     let shutdown = shutdown_signal();
     tokio::pin!(shutdown);
 
+    // --- Energy reset scheduling (Phase 06) ---
+    // Determine if energy reset is enabled from config.
+    let reset_enabled = cfg
+        .energy_reset
+        .as_ref()
+        .map(|r| r.enabled)
+        .unwrap_or(false);
+
+    if !reset_enabled && cfg.energy_reset.is_some() {
+        tracing::info!("Energy reset configured but disabled (enabled = false)");
+    }
+
+    // `reset_sleep` is always pinned in the select! loop.
+    // When disabled, it points to far_future() and never fires.
+    // When enabled, it is reset to the actual next midnight after each fire (D-08/D-09).
+    let initial_reset_deadline = if reset_enabled {
+        let er = cfg.energy_reset.as_ref().unwrap(); // safe: reset_enabled implies Some
+        match next_reset_instant(Utc::now(), &er.timezone, &er.time) {
+            Ok(std_instant) => {
+                log_next_reset(std_instant, &er.timezone); // D-13
+                tokio::time::Instant::from_std(std_instant)
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to compute next reset time — energy reset disabled");
+                far_future()
+            }
+        }
+    } else {
+        far_future()
+    };
+
+    let reset_sleep = tokio::time::sleep_until(initial_reset_deadline);
+    tokio::pin!(reset_sleep);
+
     loop {
         tokio::select! {
             _ = ticker.tick() => {
@@ -155,6 +198,41 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
             }
+            // Daily energy reset arm (D-09) — fires at next midnight local time.
+            // When disabled, reset_sleep points to far_future() and never resolves.
+            _ = &mut reset_sleep, if reset_enabled => {
+                let er = cfg.energy_reset.as_ref().unwrap(); // safe: only fires when reset_enabled
+                tracing::info!("Daily energy reset starting"); // D-11
+                for device in &cfg.devices {
+                    match poller.reset_energy(device).await {
+                        Ok(()) => {
+                            tracing::info!(device = %device.name, "Energy reset OK"); // D-11
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                device = %device.name,
+                                error = %e,
+                                "Energy reset failed, skipping" // D-12
+                            );
+                        }
+                    }
+                }
+                // Recompute next reset (D-08 — recompute from now, don't drift by adding 86400s)
+                let next_deadline = match next_reset_instant(Utc::now(), &er.timezone, &er.time) {
+                    Ok(std_instant) => {
+                        log_next_reset(std_instant, &er.timezone); // D-13
+                        tokio::time::Instant::from_std(std_instant)
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            error = %e,
+                            "Failed to recompute next reset — parking arm far in the future"
+                        );
+                        far_future()
+                    }
+                };
+                reset_sleep.as_mut().reset(next_deadline);
+            }
             _ = &mut shutdown => {
                 tracing::info!("Shutdown signal received, exiting cleanly");
                 break;
@@ -164,4 +242,17 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("rs485-logger stopped");
     Ok(())
+}
+
+/// Log the next scheduled reset time in local timezone (D-13).
+fn log_next_reset(std_instant: std::time::Instant, tz_str: &str) {
+    let now_std = std::time::Instant::now();
+    let delay = std_instant.checked_duration_since(now_std).unwrap_or_default();
+    let next_utc = Utc::now() + chrono::Duration::from_std(delay).unwrap_or_default();
+    let tz: chrono_tz::Tz = tz_str.parse().unwrap_or(chrono_tz::Asia::Bangkok);
+    let next_local = next_utc.with_timezone(&tz);
+    tracing::info!(
+        next_reset = %next_local.format("%Y-%m-%dT%H:%M:%S%:z"),
+        "Next energy reset scheduled"
+    );
 }

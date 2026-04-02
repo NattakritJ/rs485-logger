@@ -11,6 +11,15 @@ pub struct AppConfig {
     // OPS-03: optional logging config
     pub log_file: Option<String>,   // e.g. "/var/log/rs485-logger/rs485.log"
     pub log_level: Option<String>,  // e.g. "debug", "info", "warn" — default "info"
+    // Phase 06: optional daily energy reset
+    pub energy_reset: Option<EnergyResetConfig>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct EnergyResetConfig {
+    pub enabled: bool,
+    pub timezone: String,   // IANA name, e.g. "Asia/Bangkok"
+    pub time: String,       // "HH:MM" format, e.g. "00:00"
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -130,6 +139,7 @@ name = "grid_meter"
             devices: vec![],
             log_file: None,
             log_level: None,
+            energy_reset: None,
         };
         let err = validate_config(&cfg).unwrap_err();
         let msg = err.to_string().to_lowercase();

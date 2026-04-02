@@ -1,6 +1,7 @@
 // ModbusPoller — RTU client that opens the serial port once and polls PZEM-016 devices.
 // Implemented in Plan 03-01.
 
+use std::borrow::Cow;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -65,6 +66,64 @@ impl ModbusPoller {
         decode_registers(&regs, &device.name)
             .with_context(|| format!("Failed to decode registers from device '{}'", device.name))
     }
+
+    /// Send FC 0x42 (Reset Energy) to a PZEM-016 device.
+    ///
+    /// Uses a 500 ms timeout (consistent with `poll_device`). On success,
+    /// the device echoes the command back (`Response::Custom(0x42, _)`).
+    /// On a 0xC2 device error reply, logs WARN and returns `Ok(())` so the
+    /// caller can continue to the next device (skip-and-log pattern, per D-02).
+    ///
+    /// # Errors
+    /// Returns `Err` on timeout or transport failure only. Device-level 0xC2
+    /// errors are logged as warnings and return `Ok(())`.
+    pub async fn reset_energy(
+        &mut self,
+        device: &DeviceConfig,
+    ) -> anyhow::Result<()> {
+        self.ctx.set_slave(Slave(device.address));
+
+        let result = tokio::time::timeout(
+            Duration::from_millis(500),
+            self.ctx.call(Request::Custom(0x42, Cow::Borrowed(&[]))),
+        )
+        .await
+        .with_context(|| format!("Timeout resetting energy on device '{}'", device.name))?
+        .with_context(|| {
+            format!(
+                "Modbus transport error resetting energy on device '{}'",
+                device.name
+            )
+        })?
+        .with_context(|| {
+            format!(
+                "Modbus exception resetting energy on device '{}'",
+                device.name
+            )
+        })?;
+
+        match result {
+            Response::Custom(0x42, _) => {
+                // Success — device echoed the command back
+                Ok(())
+            }
+            Response::Custom(0xC2, data) => {
+                // Device returned an error reply — log WARN and continue (D-02/D-12)
+                let abnormal_code = data.first().copied().unwrap_or(0);
+                tracing::warn!(
+                    device = %device.name,
+                    abnormal_code = abnormal_code,
+                    "Energy reset failed — device returned 0xC2 error reply, skipping"
+                );
+                Ok(())
+            }
+            other => Err(anyhow::anyhow!(
+                "Unexpected response to energy reset on device '{}': {:?}",
+                device.name,
+                other
+            )),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -88,5 +147,20 @@ mod tests {
         };
         let mut poller = ModbusPoller::new(&serial).unwrap();
         let _reading = poller.poll_device(&device).await.unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "requires physical RS485 hardware"]
+    async fn test_reset_energy_signature_compiles() {
+        let serial = SerialConfig {
+            port: "/dev/ttyUSB0".to_string(),
+            baud_rate: 9600,
+        };
+        let device = DeviceConfig {
+            address: 1,
+            name: "test_device".to_string(),
+        };
+        let mut poller = ModbusPoller::new(&serial).unwrap();
+        let _result = poller.reset_energy(&device).await;
     }
 }
