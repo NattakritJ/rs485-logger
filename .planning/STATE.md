@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-influxdb-integration phase (plans 02-01, 02-02)
-last_updated: "2026-04-02T11:55:00.000Z"
+stopped_at: Completed 03-modbus-poll-loop plan 03-01 (ModbusPoller)
+last_updated: "2026-04-02T06:36:44.581Z"
 last_activity: 2026-04-02
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
   percent: 50
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-02)
 
 **Core value:** Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
-**Current focus:** Phase 2 — InfluxDB Integration (complete)
+**Current focus:** Phase 03 — modbus-poll-loop
 
 ## Current Position
 
-Phase: 2 of 4 (InfluxDB Integration) — COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase 2 complete, ready for Phase 3
+Phase: 03 (modbus-poll-loop) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-02
 
 Progress: [████████░░] ~50%
@@ -48,6 +48,7 @@ Progress: [████████░░] ~50%
 | 02-influxdb-integration | 2 | ~20 min | ~10 min |
 
 *Updated after each plan completion*
+| Phase 03-modbus-poll-loop P01 | 698 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - [Phase 02]: reqwest .query() method not available with features=["rustls"] — URL query params built manually as format!("{}?db={}&precision=ns", url, db)
 - [Phase 02]: {:.4} float format for all PZEM fields prevents InfluxDB 3 integer type lock-in (STOR-03)
 - [Phase 02]: Integration tests #[ignore]-gated with INFLUX_TOKEN env var — run with --include-ignored when InfluxDB 3 available
+- [Phase 03-modbus-poll-loop]: rtu::attach(port) used (not attach_slave) — slave address switched dynamically per device via set_slave()
+- [Phase 03-modbus-poll-loop]: tokio_modbus::Result<T> = Result<Result<T, ExceptionCode>, Error> — triple .with_context()? chain handles timeout + transport error + exception code
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-04-02T11:55:00.000Z
-Stopped at: Completed 02-influxdb-integration phase (plans 02-01, 02-02)
+Last session: 2026-04-02T06:36:44.577Z
+Stopped at: Completed 03-modbus-poll-loop plan 03-01 (ModbusPoller)
 Resume file: None
