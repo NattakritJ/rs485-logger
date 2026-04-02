@@ -1,0 +1,24 @@
+[package]
+name = "rs485-logger"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "rs485-logger"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1.50.0", features = ["rt", "time", "signal", "io-util", "macros"] }
+tokio-modbus = { version = "0.17.0", default-features = false, features = ["rtu"] }
+tokio-serial = "5.4.5"
+reqwest = { version = "0.13.2", default-features = false, features = ["rustls"] }
+serde = { version = "1.0.228", features = ["derive"] }
+toml = "1.1.1"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tracing-appender = "0.2.4"
+anyhow = "1.0.102"
+
+[profile.release]
+opt-level = 3
+strip = true
