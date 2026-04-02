@@ -1,0 +1,26 @@
+[Unit]
+Description=RS485 Logger — PZEM-016 power meter polling daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rs485logger
+Group=rs485logger
+SupplementaryGroups=dialout
+ExecStart=/usr/local/bin/rs485-logger --config /etc/rs485-logger/config.toml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rs485-logger
+
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/log/rs485-logger
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

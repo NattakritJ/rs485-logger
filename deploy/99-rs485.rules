@@ -1,0 +1,23 @@
+# USB-RS485 adapter → /dev/ttyRS485 stable symlink
+#
+# USAGE NOTES:
+#
+# 1. Find vendor/product IDs for your specific adapter:
+#       udevadm info -a -n /dev/ttyUSBx | grep -E 'idVendor|idProduct'
+#    Then add ATTRS{idVendor}=="XXXX",ATTRS{idProduct}=="XXXX" to the rule below
+#    to pin the symlink to a specific adapter (useful if multiple USB serial devices).
+#
+# 2. Test without reboot after editing this file:
+#       sudo udevadm control --reload-rules
+#       sudo udevadm trigger
+#       ls -la /dev/ttyRS485   # symlink should appear
+#
+# 3. Common USB-RS485 chip drivers:
+#       cp210x   — SiLabs CP2102/CP2104 (most common cheap adapters)
+#       ch341    — CH340 / CH341 chips
+#       ftdi_sio — FTDI FT232R / FT2232 chips
+#
+# This rule matches the cp210x driver (SiLabs — most common cheap USB-RS485 adapter).
+# Change DRIVERS=="cp210x" to match your adapter's driver if needed.
+
+SUBSYSTEM=="tty", SUBSYSTEMS=="usb", DRIVERS=="cp210x", SYMLINK+="ttyRS485", MODE="0660", GROUP="dialout"
