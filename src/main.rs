@@ -45,11 +45,13 @@ fn far_future() -> tokio::time::Instant {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> anyhow::Result<()> {
-    // Parse --config <path> from CLI args (used by systemd ExecStart).
+    // Parse --config <path> and --clear from CLI args (used by systemd ExecStart).
     // Falls back to "config.toml" in the current directory for local testing.
-    let config_path = {
+    // --clear: send energy reset command to all devices and exit immediately.
+    let (config_path, clear_mode) = {
         let mut args = std::env::args().skip(1);
         let mut path = "config.toml".to_string();
+        let mut clear = false;
         while let Some(arg) = args.next() {
             if arg == "--config" {
                 if let Some(p) = args.next() {
@@ -58,9 +60,11 @@ async fn main() -> anyhow::Result<()> {
                     eprintln!("Fatal: --config requires a path argument");
                     std::process::exit(1);
                 }
+            } else if arg == "--clear" {
+                clear = true;
             }
         }
-        path
+        (path, clear)
     };
 
     // Load config first — use eprintln! for pre-logging errors (OPS-02/OPS-03
@@ -123,12 +127,35 @@ async fn main() -> anyhow::Result<()> {
         "rs485-logger starting"
     );
 
+    // --clear mode: send energy reset to every device, then exit.
+    // Opens the Modbus port, iterates all configured devices sequentially,
+    // logs per-device success/failure, and returns before the poll loop.
+    if clear_mode {
+        tracing::info!("--clear mode: sending energy reset to all devices");
+        let mut poller = ModbusPoller::new(&cfg.serial)?;
+        for device in &cfg.devices {
+            tracing::info!(device = %device.name, "Energy reset sending command");
+            match poller.reset_energy(device).await {
+                Ok(()) => tracing::info!(device = %device.name, "Energy reset OK"),
+                Err(e) => tracing::warn!(device = %device.name, error = %e,
+                                          "Energy reset failed, skipping"),
+            }
+        }
+        tracing::info!("--clear mode: done");
+        return Ok(());
+    }
+
     let mut poller = ModbusPoller::new(&cfg.serial)?;
     let writer = InfluxWriter::new(&cfg.influxdb);
 
     let mut ticker = tokio::time::interval(
         std::time::Duration::from_secs(cfg.poll_interval_secs),
     );
+    // Skip missed ticks: if the energy reset loop (or any other blocking arm)
+    // causes a tick to be missed, do NOT burst-fire to catch up — simply skip
+    // the missed intervals.  This prevents a flood of back-to-back polls
+    // immediately after a reset that might interfere with the RS485 bus.
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     // Pin the shutdown future outside the loop so the signal subscription
     // persists across iterations (calling shutdown_signal() fresh each time
@@ -171,39 +198,28 @@ async fn main() -> anyhow::Result<()> {
     tokio::pin!(reset_sleep);
 
     loop {
+        // `biased` ensures arms are checked in declaration order when multiple
+        // are ready simultaneously.  Priority: reset > tick > shutdown.
+        //
+        // This prevents the ticker from polling devices on the RS485 bus at the
+        // same instant the energy reset fires (both deadlines fire at midnight).
+        // Without `biased`, tokio::select! picks randomly — if the ticker wins it
+        // sends FC0x04 read commands to all devices; by the time the reset arm
+        // runs, the bus is still settling and device 2's reset command gets no
+        // response within the 500 ms window (timeout).
         tokio::select! {
-            _ = ticker.tick() => {
-                for device in &cfg.devices {
-                    match poller.poll_device(device).await {
-                        Ok(reading) => {
-                            tracing::info!(
-                                device = %device.name,
-                                "Poll success"
-                            );
-                            if let Err(e) = writer.write(&reading).await {
-                                tracing::warn!(
-                                    device = %device.name,
-                                    error = %e,
-                                    "InfluxDB write failed"
-                                );
-                            }
-                        }
-                        Err(e) => {
-                            tracing::warn!(
-                                device = %device.name,
-                                error = %e,
-                                "Device poll failed, skipping"
-                            );
-                        }
-                    }
-                }
-            }
+            biased;
+
             // Daily energy reset arm (D-09) — fires at next midnight local time.
+            // Checked first (biased) so it wins over the ticker when both are ready.
             // When disabled, reset_sleep points to far_future() and never resolves.
             _ = &mut reset_sleep, if reset_enabled => {
                 let er = cfg.energy_reset.as_ref().unwrap(); // safe: only fires when reset_enabled
                 tracing::info!("Daily energy reset starting"); // D-11
+
+                // Strictly sequential per-device: send → wait for response → log → next device.
                 for device in &cfg.devices {
+                    tracing::info!(device = %device.name, "Energy reset sending command"); // D-11
                     match poller.reset_energy(device).await {
                         Ok(()) => {
                             tracing::info!(device = %device.name, "Energy reset OK"); // D-11
@@ -232,6 +248,32 @@ async fn main() -> anyhow::Result<()> {
                     }
                 };
                 reset_sleep.as_mut().reset(next_deadline);
+            }
+            _ = ticker.tick() => {
+                for device in &cfg.devices {
+                    match poller.poll_device(device).await {
+                        Ok(reading) => {
+                            tracing::info!(
+                                device = %device.name,
+                                "Poll success"
+                            );
+                            if let Err(e) = writer.write(&reading).await {
+                                tracing::warn!(
+                                    device = %device.name,
+                                    error = %e,
+                                    "InfluxDB write failed"
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                device = %device.name,
+                                error = %e,
+                                "Device poll failed, skipping"
+                            );
+                        }
+                    }
+                }
             }
             _ = &mut shutdown => {
                 tracing::info!("Shutdown signal received, exiting cleanly");
