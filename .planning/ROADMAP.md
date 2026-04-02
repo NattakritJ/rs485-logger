@@ -37,11 +37,11 @@ Plans:
   2. Integration test: `InfluxWriter.write()` POSTs to a running local InfluxDB 3 instance and gets HTTP 204; the written record is queryable via `SELECT *`
   3. Writing a zero-power reading (`power=0.0`) produces a float field, not an integer — verified by querying `SHOW COLUMNS` to confirm `DOUBLE` type
   4. InfluxDB write failure (connection refused) is logged as an error and does NOT panic or block the caller
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: `influx.rs` — `to_line_protocol()` + unit tests
-- [ ] 02-02: `InfluxWriter` struct with `reqwest` — HTTP POST + error handling + integration test
+- [ ] 02-01-PLAN.md — `to_line_protocol()` TDD — float-typed line protocol from PowerReading (Wave 1)
+- [ ] 02-02-PLAN.md — `InfluxWriter` struct with reqwest HTTP POST + error handling + integration test (Wave 2)
 
 ### Phase 3: Modbus + Poll Loop
 **Goal**: Integrate `tokio-modbus` RTU client with real PZEM-016 hardware; wire config → poller → writer into the full sequential poll loop with skip-and-continue error handling, structured logging, and graceful shutdown.
