@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<()> {
         let filename = path
             .file_name()
             .unwrap_or(std::ffi::OsStr::new("rs485-logger.log"));
-        let file_appender = tracing_appender::rolling::never(dir, filename);
+        let file_appender = tracing_appender::rolling::daily(dir, filename);
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
         _file_guard = Some(guard);
         tracing_subscriber::registry()
