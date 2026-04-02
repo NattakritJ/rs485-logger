@@ -1,7 +1,5 @@
 // Config structs and TOML parsing — implemented in Plan 02
 
-#![allow(dead_code)]
-
 use anyhow::Context;
 
 #[derive(Debug, serde::Deserialize)]

@@ -3,7 +3,6 @@ use anyhow::Context;
 use crate::config::InfluxConfig;
 use crate::types::PowerReading;
 
-#[allow(dead_code)]
 /// Convert a PowerReading to InfluxDB 3 line protocol.
 ///
 /// Format: `measurement field=value,... timestamp_ns`
@@ -25,7 +24,6 @@ pub fn to_line_protocol(reading: &PowerReading) -> String {
     )
 }
 
-#[allow(dead_code)]
 pub struct InfluxWriter {
     client: reqwest::Client,
     url: String,      // full endpoint: "{base_url}/api/v3/write_lp"
@@ -33,7 +31,6 @@ pub struct InfluxWriter {
     database: String,
 }
 
-#[allow(dead_code)]
 impl InfluxWriter {
     pub fn new(config: &InfluxConfig) -> Self {
         let client = reqwest::Client::new();

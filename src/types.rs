@@ -1,7 +1,5 @@
 // PowerReading struct and register decode logic — implemented in Plan 03
 
-#![allow(dead_code)]
-
 use anyhow::anyhow;
 
 #[derive(Debug, Clone)]
