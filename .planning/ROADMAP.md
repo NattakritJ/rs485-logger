@@ -8,7 +8,7 @@ A focused, 4-phase build: stand up the Rust project foundation with config parsi
 
 - [x] **Phase 1: Foundation** - Config parsing, data types, and register decoder — fully unit-testable, no hardware or network required (completed 2026-04-02)
 - [ ] **Phase 2: InfluxDB Integration** - Line protocol builder and HTTP write client — validates data destination against a local InfluxDB instance before hardware is needed
-- [ ] **Phase 3: Modbus + Poll Loop** - Hardware integration, full polling loop, error handling, logging, and graceful shutdown
+- [x] **Phase 3: Modbus + Poll Loop** - Hardware integration, full polling loop, error handling, logging, and graceful shutdown (completed 2026-04-02)
 - [ ] **Phase 4: Systemd Deployment** - Production packaging: systemd service unit, udev stable device naming, serial permissions, and cross-compilation
 
 ## Phase Details
@@ -58,7 +58,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — `ModbusPoller` TDD: SerialStream open-once, set_slave(), FC 0x04 read, 500ms timeout (Wave 1)
 - [x] 03-02-PLAN.md — Main poll loop: tokio::time::interval, sequential devices, skip-and-warn on error, InfluxDB write per device (Wave 2)
-- [ ] 03-03-PLAN.md — Signal handling (SIGTERM/SIGINT graceful exit) + tracing-subscriber init + optional file appender (Wave 3)
+- [x] 03-03-PLAN.md — Signal handling (SIGTERM/SIGINT graceful exit) + tracing-subscriber init + optional file appender (Wave 3)
 
 ### Phase 4: Systemd Deployment
 **Goal**: Package the daemon for production on Raspberry Pi — systemd service unit, stable `/dev/ttyRS485` udev symlink, serial port permissions, and cross-compiled release binary.
@@ -84,5 +84,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete   | 2026-04-02 |
 | 2. InfluxDB Integration | 0/2 | Not started | - |
-| 3. Modbus + Poll Loop | 1/3 | In Progress|  |
+| 3. Modbus + Poll Loop | 3/3 | Complete   | 2026-04-02 |
 | 4. Systemd Deployment | 0/2 | Not started | - |
