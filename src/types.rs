@@ -1,6 +1,10 @@
 // PowerReading struct and register decode logic — implemented in Plan 03
 
 use anyhow::anyhow;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Tracks whether the system clock warning has already been emitted (log only once).
+static CLOCK_WARNED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone)]
 pub struct PowerReading {
@@ -46,6 +50,16 @@ pub fn decode_registers(regs: &[u16], device_name: &str) -> anyhow::Result<Power
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
+
+    if timestamp_secs < 1_704_067_200 {
+        // 2024-01-01 00:00:00 UTC — only warn once to avoid log spam
+        if !CLOCK_WARNED.swap(true, Ordering::Relaxed) {
+            tracing::warn!(
+                timestamp_secs,
+                "System clock appears incorrect (before 2024-01-01) — data may have wrong timestamps"
+            );
+        }
+    }
 
     Ok(PowerReading {
         device_name: device_name.to_string(),

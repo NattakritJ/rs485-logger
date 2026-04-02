@@ -32,15 +32,19 @@ pub struct InfluxWriter {
 }
 
 impl InfluxWriter {
-    pub fn new(config: &InfluxConfig) -> Self {
-        let client = reqwest::Client::new();
+    pub fn new(config: &InfluxConfig) -> anyhow::Result<Self> {
+        let client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(5))
+            .timeout(std::time::Duration::from_secs(10))
+            .build()
+            .context("Failed to build HTTP client")?;
         let url = format!("{}/api/v3/write_lp", config.url.trim_end_matches('/'));
-        InfluxWriter {
+        Ok(InfluxWriter {
             client,
             url,
             token: config.token.clone(),
             database: config.database.clone(),
-        }
+        })
     }
 
     pub async fn write(&self, reading: &PowerReading) -> anyhow::Result<()> {
@@ -140,7 +144,7 @@ mod tests {
             token: "test-token".to_string(),
             database: "power".to_string(),
         };
-        let writer = InfluxWriter::new(&config);
+        let writer = InfluxWriter::new(&config).expect("InfluxWriter::new should succeed");
         assert_eq!(writer.url, "http://localhost:8086/api/v3/write_lp");
         assert_eq!(writer.database, "power");
     }
@@ -152,7 +156,7 @@ mod tests {
             token: "test-token".to_string(),
             database: "power".to_string(),
         };
-        let writer = InfluxWriter::new(&config);
+        let writer = InfluxWriter::new(&config).expect("InfluxWriter::new should succeed");
         assert_eq!(writer.url, "http://localhost:8086/api/v3/write_lp");
     }
 
@@ -169,7 +173,7 @@ mod tests {
             token,
             database: "power_test".to_string(),
         };
-        let writer = InfluxWriter::new(&config);
+        let writer = InfluxWriter::new(&config).expect("InfluxWriter::new should succeed");
         let reading = PowerReading {
             device_name: "integration_test_device".to_string(),
             voltage: 230.0,
@@ -196,7 +200,7 @@ mod tests {
             token: "test-token".to_string(),
             database: "power_test".to_string(),
         };
-        let writer = InfluxWriter::new(&config);
+        let writer = InfluxWriter::new(&config).expect("InfluxWriter::new should succeed");
         let reading = PowerReading {
             device_name: "test".to_string(),
             voltage: 0.0,

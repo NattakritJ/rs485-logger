@@ -140,13 +140,16 @@ async fn main() -> anyhow::Result<()> {
                 Err(e) => tracing::warn!(device = %device.name, error = %e,
                                           "Energy reset failed, skipping"),
             }
+            // RS-485 inter-frame delay: give the bus time to settle before
+            // addressing the next device (prevents second-device timeout).
+            poller.bus_delay().await;
         }
         tracing::info!("--clear mode: done");
         return Ok(());
     }
 
     let mut poller = ModbusPoller::new(&cfg.serial)?;
-    let writer = InfluxWriter::new(&cfg.influxdb);
+    let writer = InfluxWriter::new(&cfg.influxdb)?;
 
     let mut ticker = tokio::time::interval(
         std::time::Duration::from_secs(cfg.poll_interval_secs),
@@ -217,7 +220,7 @@ async fn main() -> anyhow::Result<()> {
                 let er = cfg.energy_reset.as_ref().unwrap(); // safe: only fires when reset_enabled
                 tracing::info!("Daily energy reset starting"); // D-11
 
-                // Strictly sequential per-device: send → wait for response → log → next device.
+                // Strictly sequential per-device: send → wait for response → delay → next device.
                 for device in &cfg.devices {
                     tracing::info!(device = %device.name, "Energy reset sending command"); // D-11
                     match poller.reset_energy(device).await {
@@ -232,6 +235,9 @@ async fn main() -> anyhow::Result<()> {
                             );
                         }
                     }
+                    // RS-485 inter-frame delay: give the bus time to settle before
+                    // addressing the next device (prevents second-device timeout).
+                    poller.bus_delay().await;
                 }
                 // Recompute next reset (D-08 — recompute from now, don't drift by adding 86400s)
                 let next_deadline = match next_reset_instant(Utc::now(), &er.timezone, &er.time) {
@@ -273,6 +279,11 @@ async fn main() -> anyhow::Result<()> {
                             );
                         }
                     }
+                    // RS-485 inter-frame delay: ensure the bus settles between
+                    // consecutive device polls.  Previously the InfluxDB HTTP
+                    // write provided an accidental delay on the success path,
+                    // but the error path had none — make it explicit everywhere.
+                    poller.bus_delay().await;
                 }
             }
             _ = &mut shutdown => {

@@ -74,6 +74,24 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
             device.name,
             device.address
         );
+        anyhow::ensure!(
+            !device.name.is_empty(),
+            "device at address {} has empty name",
+            device.address
+        );
+        anyhow::ensure!(
+            device.name.chars().all(|c| c.is_alphanumeric() || c == '_'),
+            "device name '{}' contains invalid characters — use only alphanumeric and underscore (spaces, commas, newlines break InfluxDB line protocol)",
+            device.name
+        );
+    }
+    if let Some(ref er) = cfg.energy_reset {
+        if er.enabled {
+            er.timezone.parse::<chrono_tz::Tz>()
+                .map_err(|_| anyhow::anyhow!("Unknown timezone '{}' in energy_reset", er.timezone))?;
+            chrono::NaiveTime::parse_from_str(&er.time, "%H:%M")
+                .with_context(|| format!("Invalid time '{}' in energy_reset — expected HH:MM", er.time))?;
+        }
     }
     Ok(())
 }
@@ -266,6 +284,152 @@ name = "solar_panel"
     fn test_load_config_file_not_found() {
         let result = load_config("nonexistent.toml");
         assert!(result.is_err(), "load_config should return Err for missing file");
+    }
+
+    // --- T1: Device name validation (HIGH-02) ---
+
+    fn make_cfg_with_device(address: u8, name: &str) -> AppConfig {
+        AppConfig {
+            poll_interval_secs: 10,
+            serial: SerialConfig {
+                port: "/dev/ttyUSB0".to_string(),
+                baud_rate: 9600,
+            },
+            influxdb: InfluxConfig {
+                url: "http://localhost:8086".to_string(),
+                token: "my-token".to_string(),
+                database: "power".to_string(),
+            },
+            devices: vec![DeviceConfig { address, name: name.to_string() }],
+            log_file: None,
+            log_level: None,
+            energy_reset: None,
+        }
+    }
+
+    #[test]
+    fn test_device_name_with_space_rejected() {
+        let cfg = make_cfg_with_device(1, "solar panel");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_device_name_with_comma_rejected() {
+        let cfg = make_cfg_with_device(1, "solar,panel");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_device_name_with_newline_rejected() {
+        let cfg = make_cfg_with_device(1, "solar\npanel");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("invalid characters"),
+            "Error should mention 'invalid characters', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_device_name_empty_rejected() {
+        let cfg = make_cfg_with_device(1, "");
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("empty"),
+            "Error should mention 'empty', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_device_name_valid_alphanumeric_and_underscore_passes() {
+        let cfg = make_cfg_with_device(1, "solar_panel_01");
+        assert!(
+            validate_config(&cfg).is_ok(),
+            "Alphanumeric + underscore device name should pass"
+        );
+    }
+
+    // --- T2: energy_reset validation (MED-05) ---
+
+    fn make_cfg_with_energy_reset(timezone: &str, time: &str, enabled: bool) -> AppConfig {
+        AppConfig {
+            poll_interval_secs: 10,
+            serial: SerialConfig {
+                port: "/dev/ttyUSB0".to_string(),
+                baud_rate: 9600,
+            },
+            influxdb: InfluxConfig {
+                url: "http://localhost:8086".to_string(),
+                token: "my-token".to_string(),
+                database: "power".to_string(),
+            },
+            devices: vec![DeviceConfig { address: 1, name: "meter".to_string() }],
+            log_file: None,
+            log_level: None,
+            energy_reset: Some(EnergyResetConfig {
+                enabled,
+                timezone: timezone.to_string(),
+                time: time.to_string(),
+            }),
+        }
+    }
+
+    #[test]
+    fn test_invalid_timezone_rejected_when_enabled() {
+        let cfg = make_cfg_with_energy_reset("Not/ATimezone", "00:00", true);
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("timezone") || msg.contains("Unknown"),
+            "Error should mention 'timezone' or 'Unknown', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_invalid_time_format_rejected_when_enabled() {
+        let cfg = make_cfg_with_energy_reset("Asia/Bangkok", "25:99", true);
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("time") || msg.contains("Invalid"),
+            "Error should mention 'time' or 'Invalid', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_invalid_timezone_not_checked_when_disabled() {
+        // When energy_reset.enabled = false, bad timezone/time should be silently ignored
+        let cfg = make_cfg_with_energy_reset("Not/ATimezone", "99:99", false);
+        assert!(
+            validate_config(&cfg).is_ok(),
+            "Disabled energy_reset should not validate timezone/time"
+        );
+    }
+
+    #[test]
+    fn test_valid_energy_reset_passes() {
+        let cfg = make_cfg_with_energy_reset("Asia/Bangkok", "00:00", true);
+        assert!(
+            validate_config(&cfg).is_ok(),
+            "Valid timezone and time should pass validation"
+        );
     }
 }
 
