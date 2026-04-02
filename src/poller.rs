@@ -11,6 +11,19 @@ use tokio_serial::SerialStream;
 use crate::config::{DeviceConfig, SerialConfig};
 use crate::types::{decode_registers, PowerReading};
 
+/// Minimum quiet time between consecutive Modbus RTU transactions on the bus.
+///
+/// The Modbus RTU specification requires at least 3.5 character times of silence
+/// between frames (~4 ms at 9600 baud).  In practice, PZEM-016 devices need
+/// additional recovery time after an energy reset (FC 0x42) because the command
+/// triggers an internal EEPROM write.  We use 100 ms as a safe margin that
+/// works reliably across all command types while keeping multi-device round-trips
+/// fast.
+///
+/// Without this delay, the second device on the bus consistently times out
+/// because the master's next command arrives before the bus has fully settled.
+const INTER_FRAME_DELAY: Duration = Duration::from_millis(100);
+
 /// Holds the Modbus RTU context for the shared RS485 bus.
 ///
 /// The serial port is opened once at construction via [`ModbusPoller::new`].
@@ -33,6 +46,16 @@ impl ModbusPoller {
             .with_context(|| format!("Failed to open serial port '{}'", serial.port))?;
         let ctx = rtu::attach(port);
         Ok(ModbusPoller { ctx })
+    }
+
+    /// Enforce the Modbus RTU inter-frame silence period.
+    ///
+    /// Must be called **after** every Modbus transaction (successful or failed)
+    /// before the next command is sent on the bus.  This ensures the bus is
+    /// electrically quiet long enough for all devices to recognise the frame
+    /// boundary.
+    pub async fn bus_delay(&self) {
+        tokio::time::sleep(INTER_FRAME_DELAY).await;
     }
 
     /// Switch to `device`'s Modbus slave address, issue FC 0x04 for 10 input
