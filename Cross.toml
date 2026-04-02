@@ -1,0 +1,29 @@
+# Cross.toml — configuration for cargo-cross cross-compilation
+#
+# Install cross: cargo install cross --git https://github.com/cross-rs/cross
+#
+# Usage:
+#   cross build --target aarch64-unknown-linux-gnu --release   # Pi 4/5 or Pi 3 (64-bit OS)
+#   cross build --target armv7-unknown-linux-gnueabihf --release  # Pi 2/3 (32-bit OS)
+
+[build.env]
+# No additional env vars needed — reqwest uses rustls (no OPENSSL_DIR required)
+# Phase 1 decision D-01: reqwest features=["rustls"] avoids OpenSSL system library dependency
+
+# Raspberry Pi 4, Pi 5, Pi 3 running 64-bit OS (Raspberry Pi OS Bookworm 64-bit)
+# Target triple: aarch64-unknown-linux-gnu
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture arm64",
+    "apt-get update",
+    "apt-get install -y --no-install-recommends libudev-dev:arm64",
+]
+
+# Raspberry Pi 2, Pi 3 running 32-bit OS (Raspberry Pi OS Bookworm 32-bit)
+# Target triple: armv7-unknown-linux-gnueabihf
+[target.armv7-unknown-linux-gnueabihf]
+pre-build = [
+    "dpkg --add-architecture armhf",
+    "apt-get update",
+    "apt-get install -y --no-install-recommends libudev-dev:armhf",
+]
