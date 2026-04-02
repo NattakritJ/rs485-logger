@@ -1,8 +1,25 @@
 use crate::types::PowerReading;
 
-// TODO: implement
-pub fn to_line_protocol(_reading: &PowerReading) -> String {
-    unimplemented!()
+#[allow(dead_code)]
+/// Convert a PowerReading to InfluxDB 3 line protocol.
+///
+/// Format: `measurement field=value,... timestamp_ns`
+/// - No tags (device name is the measurement name per STOR-01)
+/// - All numeric values formatted as f64 floats (STOR-03: prevents type lock-in)
+/// - Timestamp in nanoseconds (timestamp_secs * 1_000_000_000)
+pub fn to_line_protocol(reading: &PowerReading) -> String {
+    let ts_ns = reading.timestamp_secs * 1_000_000_000_i64;
+    format!(
+        "{} voltage={:.4},current={:.4},power={:.4},energy={:.4},frequency={:.4},power_factor={:.4} {}",
+        reading.device_name,
+        reading.voltage,
+        reading.current,
+        reading.power,
+        reading.energy,
+        reading.frequency,
+        reading.power_factor,
+        ts_ns,
+    )
 }
 
 #[cfg(test)]
