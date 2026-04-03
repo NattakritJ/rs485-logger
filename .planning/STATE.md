@@ -1,119 +1,78 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: "Completed 07-03-PLAN.md — runtime resilience: serial recovery + Modbus drain delay + InfluxDB health tracking"
-last_updated: "2026-04-02T18:25:09.390Z"
-last_activity: 2026-04-02
+milestone_name: MVP
+status: complete
+stopped_at: "v1.0 milestone archived — all 7 phases, 16 plans complete"
+last_updated: "2026-04-03T00:00:00.000Z"
+last_activity: 2026-04-03
 progress:
   total_phases: 7
   completed_phases: 7
   total_plans: 16
   completed_plans: 16
-  percent: 81
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-02)
+See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
-**Current focus:** Phase 07 — daemon-reliability-hardening
+**Current focus:** v1.0 milestone shipped — planning next milestone
 
 ## Current Position
 
-Phase: 07
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-02
+Phase: v1.0 complete
+Status: Milestone archived — ready for /gsd-new-milestone
+Last activity: 2026-04-03
 
-Progress: [████████░░] 81%
+Progress: [██████████] 100%
+
+## Milestone Summary
+
+v1.0 MVP shipped 2026-04-03
+- 7 phases, 16 plans, 69 commits
+- ~1,737 LOC Rust
+- Timeline: 2 days (2026-04-02 → 2026-04-03)
+
+Archived:
+- .planning/milestones/v1.0-ROADMAP.md
+- .planning/milestones/v1.0-REQUIREMENTS.md
+- .planning/milestones/v1.0-MILESTONE-AUDIT.md
+- .planning/MILESTONES.md
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 13
+- Total plans completed: 16
 - Average duration: ~10 min/plan
-- Total execution time: ~130 min
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-foundation | 3 | ~30 min | ~10 min |
-| 02-influxdb-integration | 2 | ~20 min | ~10 min |
-
-*Updated after each plan completion*
-| Phase 03-modbus-poll-loop P01 | 698 | 2 tasks | 2 files |
-| Phase 03-modbus-poll-loop P02 | 124 | 2 tasks | 4 files |
-| Phase 03-modbus-poll-loop P03 | 345 | 2 tasks | 2 files |
-| Phase 04-systemd-deployment P01 | 8 | 2 tasks | 3 files |
-| Phase 04-systemd-deployment P02 | 7 | 2 tasks | 2 files |
-| Phase 05-readme-manual P01 | 3 | 1 tasks | 2 files |
-| Phase 06-daily-energy-reset P01 | — | 2 tasks | 3 files |
-| Phase 06-daily-energy-reset P02 | — | 2 tasks | 2 files |
-| Phase 07 P02 | 90 | 4 tasks | 2 files |
-| Phase 07 P01 | 236 | 6 tasks | 6 files |
-| Phase 07 P03 | 85 | 4 tasks | 1 files |
+- Total execution time: ~2 days
 
 ## Accumulated Context
 
-### Decisions
+### Key Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
+Full decision log from v1.0 development:
 
-- Init: Rust, TOML config, tokio-modbus 0.17, reqwest 0.13, tracing — stack locked via research
-- Init: InfluxDB 3 write endpoint is `/api/v3/write_lp` with Bearer token (NOT v1/v2 paths)
-- Init: All PZEM numeric fields must be `f64` floats on first write — field type is immutable in InfluxDB 3
-- [Phase 01]: reqwest feature 'rustls' (renamed from 'rustls-tls' in 0.13) — enables ARM cross-compile without OpenSSL
-- [Phase 01]: tokio current_thread flavor — single RS485 bus needs sequential polling, eliminates Send bounds on serial handles
-- [Phase 01]: D-08 MEDIUM confidence: PZEM-016 low-word-first 32-bit word order sourced from ESPHome, must verify against hardware in Phase 3
-- [Phase 01]: test_empty_device_list uses direct AppConfig construction — TOML inline array placement rules in toml 1.x prevent simple TOML string approach
-- [Phase 02]: reqwest .query() method not available with features=["rustls"] — URL query params built manually as format!("{}?db={}&precision=ns", url, db)
-- [Phase 02]: {:.4} float format for all PZEM fields prevents InfluxDB 3 integer type lock-in (STOR-03)
-- [Phase 02]: Integration tests #[ignore]-gated with INFLUX_TOKEN env var — run with --include-ignored when InfluxDB 3 available
-- [Phase 03-modbus-poll-loop]: rtu::attach(port) used (not attach_slave) — slave address switched dynamically per device via set_slave()
-- [Phase 03-modbus-poll-loop]: tokio_modbus::Result<T> = Result<Result<T, ExceptionCode>, Error> — triple .with_context()? chain handles timeout + transport error + exception code
-- [Phase 03-modbus-poll-loop]: tokio::time::interval ticks at t=0 — daemon polls on startup without waiting one interval
-- [Phase 03-modbus-poll-loop]: InfluxDB write errors WARN (not ERROR) — recoverable; device poll errors WARN + continue (POLL-03)
-- [Phase 03-modbus-poll-loop]: Config loaded before tracing init (eprintln! for errors) — enables file appender from config without double-init
-- [Phase 03-modbus-poll-loop]: shutdown_signal() pinned outside poll loop — one SIGTERM handler persists across ticks, not re-registered per-tick
-- [Phase 04-systemd-deployment]: SupplementaryGroups=dialout for serial port access without root — standard Raspberry Pi OS group
-- [Phase 04-systemd-deployment]: After=network-online.target ensures InfluxDB HTTP writes succeed on Pi boot before DHCP resolves
-- [Phase 04-systemd-deployment]: Cross.toml pre-build installs libudev-dev — tokio-serial requires this system library for arm targets
-- [Phase 04-systemd-deployment]: No OPENSSL env vars in Cross.toml — reqwest rustls feature (D-01) avoids OpenSSL during cross-compile
-- [Phase 05-readme-manual]: README uses <PI_IP> and YOUR_TOKEN as only placeholder variables — all other commands are runnable as-is
-- [Phase 06-daily-energy-reset]: next_reset_instant() always recomputes from Utc::now() after each fire — prevents drift across DST transitions
-- [Phase 06-daily-energy-reset]: far_future() parks reset_sleep arm when disabled — no conditional select! needed
-- [Phase 06-daily-energy-reset]: reset_energy() returns Ok(()) on 0xC2 device error — skip-and-log per D-12
-- [Phase 06-daily-energy-reset]: chrono-tz IANA timezone parsing at startup — config error logged as WARN, energy reset disabled gracefully
-- [Phase 07]: Device name validation uses alphanumeric+underscore whitelist — prevents InfluxDB line protocol injection via config
-- [Phase 07]: Energy reset timezone/time validated at startup (not lazily) — invalid config causes fatal error before first poll
-- [Phase 07-01]: InfluxWriter::new() returns anyhow::Result — reqwest::Client::builder().build() is fallible; propagating the error is correct Rust
-- [Phase 07-01]: Database name validated at config time (not URL-encoded) — simpler and more robust; names should be plain identifiers
-- [Phase 07-01]: config.toml removed from git tracking; config.toml.example with placeholder token is the canonical reference
-- [Phase 07-03]: CRIT-02 uses exit+systemd-restart (not in-process serial reconnect) — simpler, more reliable without hardware to test reconnect
-- [Phase 07-03]: influx_healthy flag is per-daemon not per-device — all devices share one InfluxDB connection so one health flag is correct
-- [Phase 07-03]: HIGH-04 100ms drain delay fires only on poll error (not success) — no impact on normal throughput
+- tokio current_thread runtime — single RS485 bus needs sequential polling
+- reqwest rustls feature — avoids OpenSSL during ARM cross-compilation
+- tokio-modbus rtu::attach(port) + set_slave() — open once, switch slave per device
+- {:.4} float format — prevents InfluxDB 3 integer type lock-in
+- far_future() parks disabled select! arm — no conditional select! needed
+- CRIT-02 exit+systemd-restart — simpler than in-process serial reconnect
+- influx_healthy flag per-daemon — all devices share one InfluxDB connection
 
 ### Roadmap Evolution
 
-- Phase 5 added: Create comprehensive manual (README.md) on how to use this program E2E (from PZEM016 wiring, connection to Raspberry Pi, configuration, start app, etc.)
-- Phase 6 added: Send command to Reset energy at the beginning of the day (00:00 Thailand timezone). Observe file ct_datasheet.txt for instruction.
-- Phase 7 added: Daemon reliability hardening — fix all 14 findings from daemon reliability verification report
-
-### Pending Todos
-
-Phase 7: 3 plans (07-01, 07-02, 07-03) — daemon reliability hardening.
-
-### Blockers/Concerns
-
-Phase 7 requires fixing 14 daemon reliability findings before production confidence.
+- Phases 1-4: Core RS485 polling daemon with InfluxDB writes and systemd deployment
+- Phase 5 added: Comprehensive E2E README.md manual
+- Phase 6 added: Daily energy reset via Modbus FC 0x42 at configurable timezone/time
+- Phase 7 added: Daemon reliability hardening — fixed all 14 daemon reliability findings
 
 ### Quick Tasks Completed
 
@@ -124,6 +83,6 @@ Phase 7 requires fixing 14 daemon reliability findings before production confide
 
 ## Session Continuity
 
-Last session: 2026-04-02T18:20:25.357Z
-Stopped at: Completed 07-03-PLAN.md — runtime resilience: serial recovery + Modbus drain delay + InfluxDB health tracking
+Last session: 2026-04-03
+Stopped at: v1.0 milestone archived
 Resume file: None
