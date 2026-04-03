@@ -155,21 +155,21 @@ name = "grid_meter"
 
 ### Configuration Field Reference
 
-| Field                       | Type     | Required | Default  | Notes                                              |
-| --------------------------- | -------- | -------- | -------- | -------------------------------------------------- |
-| `poll_interval_secs`        | `u64`    | ✓        | —        | Seconds between full poll cycles. Minimum: 1.      |
-| `serial.port`               | `string` | ✓        | —        | `/dev/ttyRS485` (with udev) or `/dev/ttyUSB0`      |
-| `serial.baud_rate`          | `u32`    | ✓        | —        | `9600` for PZEM-016 (factory default)              |
-| `influxdb.url`              | `string` | ✓        | —        | Base URL, no trailing slash                        |
-| `influxdb.token`            | `string` | ✓        | —        | Bearer token from InfluxDB UI                      |
-| `influxdb.database`         | `string` | ✓        | —        | Database/bucket name — alphanumeric, `_`, `-` only |
-| `devices[].address`         | `u8`     | ✓        | —        | Modbus address 1–247; must be unique               |
-| `devices[].name`            | `string` | ✓        | —        | InfluxDB measurement name — alphanumeric and `_` only (no spaces, commas, or special chars) |
-| `log_file`                  | `string` | —        | none     | Optional file path for persistent log output. Files rotate daily — a date suffix is appended (e.g. `rs485.log.2026-04-03`). |
-| `log_level`                 | `string` | —        | `"info"` | `error` / `warn` / `info` / `debug` / `trace`      |
-| `energy_reset.enabled`      | `bool`   | —        | —        | Set `false` to disable without removing the section |
-| `energy_reset.timezone`     | `string` | —        | —        | IANA timezone, e.g. `"Asia/Bangkok"`, `"UTC"`      |
-| `energy_reset.time`         | `string` | —        | —        | Reset time in `HH:MM` 24-hour format, e.g. `"00:00"` |
+| Field                   | Type     | Required | Default  | Notes                                                                                                                       |
+| ----------------------- | -------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `poll_interval_secs`    | `u64`    | ✓        | —        | Seconds between full poll cycles. Minimum: 1.                                                                               |
+| `serial.port`           | `string` | ✓        | —        | `/dev/ttyRS485` (with udev) or `/dev/ttyUSB0`                                                                               |
+| `serial.baud_rate`      | `u32`    | ✓        | —        | `9600` for PZEM-016 (factory default)                                                                                       |
+| `influxdb.url`          | `string` | ✓        | —        | Base URL, no trailing slash                                                                                                 |
+| `influxdb.token`        | `string` | ✓        | —        | Bearer token from InfluxDB UI                                                                                               |
+| `influxdb.database`     | `string` | ✓        | —        | Database/bucket name — alphanumeric, `_`, `-` only                                                                          |
+| `devices[].address`     | `u8`     | ✓        | —        | Modbus address 1–247; must be unique                                                                                        |
+| `devices[].name`        | `string` | ✓        | —        | InfluxDB measurement name — alphanumeric and `_` only (no spaces, commas, or special chars)                                 |
+| `log_file`              | `string` | —        | none     | Optional file path for persistent log output. Files rotate daily — a date suffix is appended (e.g. `rs485.log.2026-04-03`). |
+| `log_level`             | `string` | —        | `"info"` | `error` / `warn` / `info` / `debug` / `trace`                                                                               |
+| `energy_reset.enabled`  | `bool`   | —        | —        | Set `false` to disable without removing the section                                                                         |
+| `energy_reset.timezone` | `string` | —        | —        | IANA timezone, e.g. `"Asia/Bangkok"`, `"UTC"`                                                                               |
+| `energy_reset.time`     | `string` | —        | —        | Reset time in `HH:MM` 24-hour format, e.g. `"00:00"`                                                                        |
 
 ---
 
@@ -332,21 +332,25 @@ Each device is polled in order, every `poll_interval_secs` seconds. A device tha
 #### Fault and recovery log patterns
 
 When a device times out:
+
 ```
 WARN Device poll failed, skipping device=solar_panel error=Timeout polling device 'solar_panel'
 ```
 
 When InfluxDB becomes unreachable (first failure only — subsequent failures are suppressed):
+
 ```
 WARN InfluxDB write failed — suppressing further warnings until restored device=solar_panel error=...
 ```
 
 When InfluxDB recovers:
+
 ```
 INFO InfluxDB connection restored
 ```
 
 When all devices fail 10 consecutive poll cycles (triggers systemd restart):
+
 ```
 WARN All devices failed this poll cycle consecutive_failures=1
 ...
@@ -355,6 +359,7 @@ ERROR All devices failed 10 consecutive polls — exiting for systemd restart co
 ```
 
 System clock sanity warning (logged at most once if the Pi clock is wrong at boot):
+
 ```
 WARN System clock appears incorrect (before 2024-01-01) — data may have wrong timestamps timestamp_secs=...
 ```
@@ -408,13 +413,13 @@ Look for the `DRIVERS` line in the `usb` subsystem block:
 | `ch341`    | WCH CH340 / CH341      | Common on blue USB-RS485 sticks           |
 | `ftdi_sio` | FTDI FT232R / FT2232   | Higher-quality adapters                   |
 
-If your adapter uses `ch341` or `ftdi_sio`, open `deploy/99-rs485.rules` and change `DRIVERS=="cp210x"` to match before running `install.sh`:
+If your adapter uses `cp210x` or `ftdi_sio`, open `deploy/99-rs485.rules` and change `DRIVERS=="ch341"` to match before running `install.sh`:
 
 ```bash
-# Example: edit rule for CH341 adapters
+# Example: edit rule for ftdi_sio adapters
 sudo nano /etc/udev/rules.d/99-rs485.rules
-# Change: DRIVERS=="cp210x"
-# To:     DRIVERS=="ch341"
+# Change: DRIVERS=="ch341"
+# To:     DRIVERS=="ftdi_sio"
 ```
 
 ### Apply Rule Changes Without Rebooting
@@ -428,24 +433,24 @@ ls -la /dev/ttyRS485   # symlink should now appear
 
 ## Troubleshooting
 
-| Symptom                                           | Likely Cause                                              | Fix                                                                                        |
-| ------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `Failed to read config file: config.toml`         | Config not found at expected path                         | Check that `/etc/rs485-logger/config.toml` exists and is readable by `rs485logger` user    |
-| `Failed to open serial port '/dev/ttyRS485'`      | Adapter not plugged in, or udev rule not loaded           | Check `ls /dev/ttyUSB*`; run `sudo udevadm control --reload-rules && sudo udevadm trigger` |
-| `Permission denied: /dev/ttyRS485`                | `rs485logger` user not in `dialout` group                 | Run `sudo usermod -aG dialout rs485logger` then `sudo systemctl restart rs485-logger`      |
-| `Timeout polling device 'X'`                      | Wrong baud rate, wrong Modbus address, or wiring reversed | Verify `baud_rate = 9600`, confirm device address, try swapping A/B wires                  |
-| All devices show timeout but wiring looks correct | Bus noise or missing termination                          | Add a 120Ω resistor across A/B at far end; reduce cable length                             |
-| `InfluxDB write failed: HTTP 401`                 | Expired or incorrect API token                            | Regenerate token in InfluxDB UI; update `influxdb.token` in `config.toml`; restart daemon  |
-| `InfluxDB write failed: connection refused`       | InfluxDB not running, or wrong URL                        | Check InfluxDB service status; verify `influxdb.url` in config (no trailing slash)         |
-| InfluxDB write errors logged once then silent     | Expected — suppression is intentional                     | First failure logs `WARN`; subsequent ones are suppressed until connectivity is restored; `INFO InfluxDB connection restored` appears on recovery |
-| Daemon crashes immediately on startup             | Config parse error or invalid field value                 | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml`       |
-| `device name '...' contains invalid characters`   | Device name has spaces, commas, or special chars          | Use only alphanumeric characters and underscores in `devices[].name` (e.g. `solar_panel`)  |
-| `influxdb.database '...' contains invalid characters` | Database name has slashes, spaces, or special chars   | Use only alphanumeric characters, underscores, and dashes in `influxdb.database`           |
-| `Unknown timezone '...' in energy_reset`          | Unrecognised IANA timezone string                         | Use a valid IANA name from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g. `"Asia/Bangkok"`, `"UTC"`) |
-| Daemon keeps restarting via systemd               | All devices failing 10+ consecutive polls; intentional exit | Check serial adapter is plugged in; verify RS485 wiring; check `journalctl -u rs485-logger` for the `exiting for systemd restart` error |
-| Daemon starts but no data in InfluxDB             | Writes are silently failing                               | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines               |
-| No data after reboot                              | systemd unit not enabled                                  | Run `sudo systemctl enable rs485-logger`                                                   |
-| 32-bit word order produces wrong values           | Hardware word-order deviation                             | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings      |
+| Symptom                                               | Likely Cause                                                | Fix                                                                                                                                               |
+| ----------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Failed to read config file: config.toml`             | Config not found at expected path                           | Check that `/etc/rs485-logger/config.toml` exists and is readable by `rs485logger` user                                                           |
+| `Failed to open serial port '/dev/ttyRS485'`          | Adapter not plugged in, or udev rule not loaded             | Check `ls /dev/ttyUSB*`; run `sudo udevadm control --reload-rules && sudo udevadm trigger`                                                        |
+| `Permission denied: /dev/ttyRS485`                    | `rs485logger` user not in `dialout` group                   | Run `sudo usermod -aG dialout rs485logger` then `sudo systemctl restart rs485-logger`                                                             |
+| `Timeout polling device 'X'`                          | Wrong baud rate, wrong Modbus address, or wiring reversed   | Verify `baud_rate = 9600`, confirm device address, try swapping A/B wires                                                                         |
+| All devices show timeout but wiring looks correct     | Bus noise or missing termination                            | Add a 120Ω resistor across A/B at far end; reduce cable length                                                                                    |
+| `InfluxDB write failed: HTTP 401`                     | Expired or incorrect API token                              | Regenerate token in InfluxDB UI; update `influxdb.token` in `config.toml`; restart daemon                                                         |
+| `InfluxDB write failed: connection refused`           | InfluxDB not running, or wrong URL                          | Check InfluxDB service status; verify `influxdb.url` in config (no trailing slash)                                                                |
+| InfluxDB write errors logged once then silent         | Expected — suppression is intentional                       | First failure logs `WARN`; subsequent ones are suppressed until connectivity is restored; `INFO InfluxDB connection restored` appears on recovery |
+| Daemon crashes immediately on startup                 | Config parse error or invalid field value                   | Run manually to see the error: `rs485-logger --config /etc/rs485-logger/config.toml`                                                              |
+| `device name '...' contains invalid characters`       | Device name has spaces, commas, or special chars            | Use only alphanumeric characters and underscores in `devices[].name` (e.g. `solar_panel`)                                                         |
+| `influxdb.database '...' contains invalid characters` | Database name has slashes, spaces, or special chars         | Use only alphanumeric characters, underscores, and dashes in `influxdb.database`                                                                  |
+| `Unknown timezone '...' in energy_reset`              | Unrecognised IANA timezone string                           | Use a valid IANA name from the [tz database](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) (e.g. `"Asia/Bangkok"`, `"UTC"`)       |
+| Daemon keeps restarting via systemd                   | All devices failing 10+ consecutive polls; intentional exit | Check serial adapter is plugged in; verify RS485 wiring; check `journalctl -u rs485-logger` for the `exiting for systemd restart` error           |
+| Daemon starts but no data in InfluxDB                 | Writes are silently failing                                 | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines                                                                      |
+| No data after reboot                                  | systemd unit not enabled                                    | Run `sudo systemctl enable rs485-logger`                                                                                                          |
+| 32-bit word order produces wrong values               | Hardware word-order deviation                               | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings                                                             |
 
 ### Manual Startup for Debugging
 
