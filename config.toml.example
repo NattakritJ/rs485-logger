@@ -24,6 +24,11 @@ baud_rate = 9600
 # Energy reset commands always use a fixed 500 ms timeout regardless of this setting.
 # read_timeout_ms = 150
 
+# Serial parity. Default: "N" (none = 8N1, PZEM-016 factory default).
+# Accepted values: "N" (none), "E" (even), "O" (odd).
+# Only change if you've reconfigured the PZEM-016's parity setting.
+# parity = "N"
+
 [influxdb]
 # InfluxDB 3 base URL — no trailing slash.
 url = "http://192.168.1.10:8181"

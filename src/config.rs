@@ -29,6 +29,9 @@ pub struct SerialConfig {
     /// Modbus read timeout in milliseconds. Default: 150ms.
     /// Only affects FC 0x04 (read input registers). Energy reset (FC 0x42) always uses 500ms.
     pub read_timeout_ms: Option<u64>,
+    /// Serial parity setting. Default: "N" (none = 8N1, PZEM-016 standard).
+    /// Accepted values: "N" (none), "E" (even), "O" (odd).
+    pub parity: Option<String>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -100,6 +103,14 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
             })?;
         }
     }
+    if let Some(ref p) = cfg.serial.parity {
+        let upper = p.to_uppercase();
+        anyhow::ensure!(
+            upper == "N" || upper == "E" || upper == "O",
+            "serial.parity '{}' is invalid — accepted values: \"N\" (none), \"E\" (even), \"O\" (odd)",
+            p
+        );
+    }
     Ok(())
 }
 
@@ -156,6 +167,7 @@ name = "grid_meter"
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
                 read_timeout_ms: None,
+                parity: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
@@ -306,6 +318,7 @@ name = "solar_panel"
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
                 read_timeout_ms: None,
+                parity: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
@@ -379,6 +392,7 @@ name = "solar_panel"
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
                 read_timeout_ms: None,
+                parity: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
@@ -461,6 +475,7 @@ name = "solar_panel"
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
                 read_timeout_ms: None,
+                parity: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
@@ -550,6 +565,75 @@ name = "solar_panel"
     fn test_read_timeout_ms_absent_is_none() {
         let cfg: AppConfig = toml::from_str(VALID_CONFIG).unwrap();
         assert_eq!(cfg.serial.read_timeout_ms, None);
+    }
+
+    // --- parity config field (CFG-02) ---
+
+    #[test]
+    fn test_parity_none_string_accepted() {
+        let cfg_str = r#"
+poll_interval_secs = 10
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+parity = "N"
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
+        assert_eq!(cfg.serial.parity, Some("N".to_string()));
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_parity_even_accepted() {
+        let mut cfg = make_cfg_with_device(1, "meter");
+        cfg.serial.parity = Some("E".to_string());
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_parity_odd_accepted() {
+        let mut cfg = make_cfg_with_device(1, "meter");
+        cfg.serial.parity = Some("O".to_string());
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_parity_lowercase_accepted() {
+        let mut cfg = make_cfg_with_device(1, "meter");
+        cfg.serial.parity = Some("n".to_string());
+        assert!(
+            validate_config(&cfg).is_ok(),
+            "lowercase parity should be accepted"
+        );
+    }
+
+    #[test]
+    fn test_parity_invalid_rejected() {
+        let mut cfg = make_cfg_with_device(1, "meter");
+        cfg.serial.parity = Some("X".to_string());
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("parity"),
+            "Error should mention 'parity', got: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_parity_absent_is_none() {
+        let cfg: AppConfig = toml::from_str(VALID_CONFIG).unwrap();
+        assert_eq!(
+            cfg.serial.parity, None,
+            "parity should be None when absent from config"
+        );
     }
 }
 
