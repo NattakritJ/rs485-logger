@@ -19,6 +19,10 @@ port = "/dev/ttyRS485"
 # Baud rate. PZEM-016 factory default is 9600. Do not change unless you have
 # explicitly re-configured the device.
 baud_rate = 9600
+# Modbus read timeout in milliseconds. Default: 150.
+# Lower values speed up multi-device polling; raise if devices report sporadic timeouts.
+# Energy reset commands always use a fixed 500 ms timeout regardless of this setting.
+# read_timeout_ms = 150
 
 [influxdb]
 # InfluxDB 3 base URL — no trailing slash.
