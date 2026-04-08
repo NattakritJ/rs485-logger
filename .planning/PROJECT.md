@@ -8,9 +8,9 @@ A Rust daemon that polls multiple PZEM-016 power meters connected in a Modbus RS
 
 Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
 
-## Current State (v1.0 — Shipped 2026-04-03)
+## Current State (v1.0 — Phase 01 Complete 2026-04-09)
 
-- **Status:** Production-ready daemon shipped
+- **Status:** Phase 01 complete — RS485 poll cycle optimized; 5-device cycle now ~900ms (was ~3000ms)
 - **LOC:** ~1,737 Rust across 6 source files (main.rs, config.rs, types.rs, influx.rs, poller.rs, scheduler.rs)
 - **Tech stack:** tokio 1.50 (current_thread), tokio-modbus 0.17, reqwest 0.13 (rustls), tracing 0.1, chrono-tz 0.10
 - **Target:** aarch64-unknown-linux-gnu / armv7-unknown-linux-gnueabihf (Raspberry Pi); cross-compilation via `cargo cross`
@@ -33,6 +33,7 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 - ✓ Comprehensive E2E README.md manual (hardware wiring → deployment → InfluxDB verification) — v1.0
 - ✓ Daily energy reset via Modbus FC 0x42 at configurable timezone/time — v1.0
 - ✓ Daemon reliability hardening (HTTP timeouts, serial recovery, config validation, log rotation, git hygiene) — v1.0
+- ✓ RS485 poll cycle optimized: 5-device cycle ~900ms via 150ms configurable read timeout + split inter-frame delays (30ms reads / 100ms resets) — Phase 01
 
 ### Active (Next Milestone)
 
@@ -88,7 +89,7 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 | InfluxDB health tracking per-daemon (not per-device) | All devices write to same InfluxDB instance — one health flag is correct | ✓ Confirmed — Phase 7 |
 
 ---
-*Last updated: 2026-04-03 after v1.0 milestone — full daemon shipped: Modbus RTU polling, InfluxDB 3 writes, daily energy reset, systemd deployment, reliability hardening*
+*Last updated: 2026-04-09 after Phase 01 — RS485 poll cycle optimized: read_timeout_ms configurable (default 150ms), inter-frame delays split (30ms reads / 100ms resets), cycle timer with WARN log added*
 
 ## Evolution
 
