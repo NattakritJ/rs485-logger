@@ -153,7 +153,7 @@ async fn main() -> anyhow::Result<()> {
             }
             // RS-485 inter-frame delay: give the bus time to settle before
             // addressing the next device (prevents second-device timeout).
-            poller.bus_delay().await;
+            poller.bus_delay_reset().await;
         }
         tracing::info!("--clear mode: done");
         return Ok(());
@@ -225,19 +225,33 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         // `biased` ensures arms are checked in declaration order when multiple
-        // are ready simultaneously.  Priority: reset > tick > shutdown.
+        // are ready simultaneously.  Priority: shutdown > reset > tick.
         //
-        // This prevents the ticker from polling devices on the RS485 bus at the
-        // same instant the energy reset fires (both deadlines fire at midnight).
-        // Without `biased`, tokio::select! picks randomly — if the ticker wins it
-        // sends FC0x04 read commands to all devices; by the time the reset arm
-        // runs, the bus is still settling and device 2's reset command gets no
-        // response within the 500 ms window (timeout).
+        // Shutdown is checked FIRST so that:
+        //   (a) the signal waker is registered on the very first iteration, and
+        //   (b) SIGTERM is honoured immediately even when the ticker is also ready.
+        // Since shutdown resolves at most once (it is otherwise perpetually
+        // pending), placing it first adds zero overhead to the normal poll path.
+        //
+        // Reset is checked before tick to prevent the ticker from polling devices
+        // on the RS485 bus at the same instant the energy reset fires (both
+        // deadlines fire at midnight).  Without `biased` tokio::select! picks
+        // randomly — if the ticker wins it sends FC0x04 read commands to all
+        // devices; by the time the reset arm runs, the bus is still settling and
+        // device 2's reset command gets no response within the 500 ms window.
         tokio::select! {
             biased;
 
+            // Shutdown arm — checked FIRST so SIGTERM/SIGINT is never starved by
+            // the ticker.  The future is pending until a signal arrives, so this
+            // arm has no impact on normal poll throughput.
+            _ = &mut shutdown => {
+                tracing::info!("Shutdown signal received, exiting cleanly");
+                break;
+            }
+
             // Daily energy reset arm (D-09) — fires at next midnight local time.
-            // Checked first (biased) so it wins over the ticker when both are ready.
+            // Checked second (before ticker) so it wins when both are ready.
             // When disabled, reset_sleep points to far_future() and never resolves.
             _ = &mut reset_sleep, if reset_enabled => {
                 let er = cfg.energy_reset.as_ref().unwrap(); // safe: only fires when reset_enabled
@@ -260,7 +274,7 @@ async fn main() -> anyhow::Result<()> {
                     }
                     // RS-485 inter-frame delay: give the bus time to settle before
                     // addressing the next device (prevents second-device timeout).
-                    poller.bus_delay().await;
+                    poller.bus_delay_reset().await;
                 }
                 // Recompute next reset (D-08 — recompute from now, don't drift by adding 86400s)
                 let next_deadline = match next_reset_instant(Utc::now(), &er.timezone, &er.time) {
@@ -279,6 +293,9 @@ async fn main() -> anyhow::Result<()> {
                 reset_sleep.as_mut().reset(next_deadline);
             }
             _ = ticker.tick() => {
+                // D-08: Track cycle duration to warn when poll exceeds configured interval.
+                let cycle_start = std::time::Instant::now();
+
                 // CRIT-02: Track whether at least one device succeeded this cycle.
                 let mut any_ok = false;
 
@@ -322,7 +339,7 @@ async fn main() -> anyhow::Result<()> {
                     // consecutive device polls.  Previously the InfluxDB HTTP
                     // write provided an accidental delay on the success path,
                     // but the error path had none — make it explicit everywhere.
-                    poller.bus_delay().await;
+                    poller.bus_delay_read().await;
                 }
 
                 // CRIT-02: If no device succeeded, increment the consecutive-failure
@@ -345,10 +362,19 @@ async fn main() -> anyhow::Result<()> {
                         break;
                     }
                 }
-            }
-            _ = &mut shutdown => {
-                tracing::info!("Shutdown signal received, exiting cleanly");
-                break;
+
+                // D-09: Warn if the poll cycle took longer than the configured interval.
+                let cycle_ms = cycle_start.elapsed().as_millis();
+                let interval_ms = cfg.poll_interval_secs as u128 * 1000;
+                if cycle_ms > interval_ms {
+                    tracing::warn!(
+                        cycle_ms = cycle_ms as u64,
+                        interval_secs = cfg.poll_interval_secs,
+                        "Poll cycle took {}ms, exceeds configured interval of {}s — consider reducing read_timeout_ms or device count",
+                        cycle_ms,
+                        cfg.poll_interval_secs
+                    );
+                }
             }
         }
     }
