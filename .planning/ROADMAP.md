@@ -42,3 +42,14 @@ Full details: [.planning/milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 Plans:
 - [x] 01-01-PLAN.md — Config + poller + main loop poll speed optimization
+
+### Phase 2: Revisit polling slowlyness
+
+**Goal:** Eliminate ~3.15s InfluxDB write bottleneck from poll loop via fire-and-forget tokio::spawn writes; fold in CFG-02 parity config and RISK-1 udev rule fix.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14
+**Depends on:** Phase 1
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Decouple InfluxDB writes from poll loop (fire-and-forget + Arc<AtomicBool> health)
+- [ ] 02-02-PLAN.md — Add parity config (CFG-02) + fix udev rule driver mismatch (RISK-1)
