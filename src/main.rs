@@ -9,6 +9,8 @@ use config::load_config;
 use influx::InfluxWriter;
 use poller::ModbusPoller;
 use scheduler::next_reset_instant;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Resolves when SIGTERM or SIGINT (Ctrl+C) is received.
 /// Pinned outside the poll loop so the signal subscription persists
@@ -172,7 +174,8 @@ async fn main() -> anyhow::Result<()> {
     // On transition healthy → unhealthy: log WARN.
     // On transition unhealthy → healthy: log INFO.
     // While unhealthy: silently drop per-write errors.
-    let mut influx_healthy = true;
+    // Arc<AtomicBool> so spawned write tasks can share and update the flag.
+    let influx_healthy = Arc::new(AtomicBool::new(true));
 
     let mut ticker = tokio::time::interval(
         std::time::Duration::from_secs(cfg.poll_interval_secs),
@@ -308,18 +311,35 @@ async fn main() -> anyhow::Result<()> {
                                 "Poll success"
                             );
                             // MED-04: InfluxDB health-state tracking — suppress repeated log spam.
-                            if let Err(e) = writer.write(&reading).await {
-                                if influx_healthy {
-                                    tracing::warn!(
-                                        device = %device.name,
-                                        error = %e,
-                                        "InfluxDB write failed — suppressing further warnings until restored"
-                                    );
-                                    influx_healthy = false;
-                                }
-                            } else if !influx_healthy {
-                                tracing::info!("InfluxDB connection restored");
-                                influx_healthy = true;
+                            // Fire-and-forget: spawn a task so the poll loop is not blocked
+                            // by the ~630ms HTTP write latency.
+                            {
+                                let writer_clone = writer.clone();
+                                let health = Arc::clone(&influx_healthy);
+                                let device_name = device.name.clone();
+                                tokio::spawn(async move {
+                                    match writer_clone.write(&reading).await {
+                                        Ok(()) => {
+                                            // D-07: unhealthy → healthy transition
+                                            if !health.load(Ordering::Relaxed) {
+                                                health.store(true, Ordering::Relaxed);
+                                                tracing::info!("InfluxDB connection restored");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            // D-07: healthy → unhealthy transition (first failure logs WARN)
+                                            // While unhealthy: silently drop per-write errors (no repeated WARN spam)
+                                            if health.swap(false, Ordering::Relaxed) {
+                                                // Was healthy (true), now set to false — log the transition
+                                                tracing::warn!(
+                                                    device = %device_name,
+                                                    error = %e,
+                                                    "InfluxDB write failed — suppressing further warnings until restored"
+                                                );
+                                            }
+                                        }
+                                    }
+                                });
                             }
                         }
                         Err(e) => {

@@ -37,7 +37,13 @@ impl ModbusPoller {
     /// Returns `Err` if the serial port cannot be opened (e.g. device missing,
     /// permission denied).
     pub fn new(serial: &SerialConfig) -> anyhow::Result<Self> {
-        let builder = tokio_serial::new(&serial.port, serial.baud_rate);
+        let parity = match serial.parity.as_deref().unwrap_or("N").to_uppercase().as_str() {
+            "E" => tokio_serial::Parity::Even,
+            "O" => tokio_serial::Parity::Odd,
+            _ => tokio_serial::Parity::None,  // "N" or any default
+        };
+        let builder = tokio_serial::new(&serial.port, serial.baud_rate)
+            .parity(parity);
         let port = SerialStream::open(&builder)
             .with_context(|| format!("Failed to open serial port '{}'", serial.port))?;
         let ctx = rtu::attach(port);
@@ -171,6 +177,7 @@ mod tests {
             port: "/dev/ttyUSB0".to_string(),
             baud_rate: 9600,
             read_timeout_ms: None,
+            parity: None,
         };
         let device = DeviceConfig {
             address: 1,
@@ -187,6 +194,7 @@ mod tests {
             port: "/dev/ttyUSB0".to_string(),
             baud_rate: 9600,
             read_timeout_ms: None,
+            parity: None,
         };
         let device = DeviceConfig {
             address: 1,

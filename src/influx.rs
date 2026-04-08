@@ -24,6 +24,7 @@ pub fn to_line_protocol(reading: &PowerReading) -> String {
     )
 }
 
+#[derive(Clone)]
 pub struct InfluxWriter {
     client: reqwest::Client,
     url: String,      // full endpoint: "{base_url}/api/v3/write_lp"
