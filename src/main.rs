@@ -15,25 +15,36 @@ use scheduler::next_reset_instant;
 /// across iterations (OPS-01).
 async fn shutdown_signal() {
     let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => (),
+            Err(e) => {
+                tracing::warn!("Failed to wait for Ctrl+C: {e}");
+            }
+        }
     };
 
     #[cfg(unix)]
     let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut sig) => {
+                let _ = sig.recv().await;
+            }
+            Err(e) => {
+                tracing::warn!("Failed to install SIGTERM handler: {e}");
+            }
+        }
     };
 
     #[cfg(not(unix))]
     let terminate = std::future::pending::<()>();
 
     tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
+        _ = ctrl_c => {
+            tracing::info!("SIGINT received, initiating graceful shutdown");
+        },
+        _ = terminate => {
+            tracing::info!("SIGTERM received, initiating graceful shutdown");
+        },
     }
 }
 
@@ -43,7 +54,7 @@ fn far_future() -> tokio::time::Instant {
     tokio::time::Instant::now() + std::time::Duration::from_secs(365 * 24 * 3600 * 10)
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> anyhow::Result<()> {
     // Parse --config <path> and --clear from CLI args (used by systemd ExecStart).
     // Falls back to "config.toml" in the current directory for local testing.
