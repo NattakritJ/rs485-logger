@@ -90,12 +90,12 @@ Phase 01 decisions:
 |---|-------------|------|--------|-----------|
 | 260402-msc | Create ARCHITECTURE.md to explain how the program works with Rust language explanations for developers unfamiliar with Rust | 2026-04-02 | 2d54d9f | [260402-msc-create-architecture-md-to-explain-how-th](./quick/260402-msc-create-architecture-md-to-explain-how-th/) |
 | 260403-0gn | Add --clear flag to send energy reset to all devices and exit immediately | 2026-04-03 | b53d656 | [260403-0gn-add-clear-parameter-for-energy-clear-mod](./quick/260403-0gn-add-clear-parameter-for-energy-clear-mod/) |
-| 260409-6x7 | Update README.md and config.toml.example for Phase 01 read_timeout_ms and cycle-WARN | 2026-04-08 | eb2a031 | [260409-6x7-update-readme-md-and-config-toml-example](./quick/260409-6x7-update-readme-md-and-config-toml-example/) |
+| 260409-6x7 | update README.md and config.toml.example to reflect latest changes | 2026-04-08 | 543b00a | [260409-6x7-update-readme-md-and-config-toml-example](./quick/260409-6x7-update-readme-md-and-config-toml-example/) |
 
 **Phase 01-01:** Poll speed optimization — 2 tasks, 4 files, 4 min — Commits: f382bcd, 4531cd3
 
 ## Session Continuity
 
 Last session: 2026-04-08T22:02:28Z
-Stopped at: Completed quick/260409-6x7-PLAN.md
+Stopped at: Completed quick task 260409-6x7: update README.md and config.toml.example to reflect latest changes
 Resume file: None
