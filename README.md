@@ -410,30 +410,31 @@ Expected response: a JSON array with records containing the following fields (al
 
 The file `deploy/99-rs485.rules` creates a `/dev/ttyRS485` symlink that persists across reboots and adapter re-plugs. Without it, the kernel may assign `/dev/ttyUSB0`, `/dev/ttyUSB1`, etc. depending on plug-in order.
 
-The default rule targets the `cp210x` driver (SiLabs CP2102/CP2104 — the most common chip on cheap USB-RS485 adapters). **If your adapter uses a different chip, you must edit the rule before running `install.sh`.**
+The default rule is **driver-agnostic** — it matches any USB serial adapter on the `tty` subsystem without filtering by driver. This works out of the box with `cp210x` (SiLabs), `ch341` (WCH), and `ftdi_sio` (FTDI) adapters.
 
-### Finding Your Adapter's Driver
+**If you have multiple USB serial devices**, add your adapter's VID/PID to pin the symlink to a specific adapter. See below.
+
+### Pinning to a Specific Adapter (Multiple USB Serial Devices)
+
+If you have multiple USB serial devices (e.g., a GPS dongle and a RS485 adapter), add your adapter's VID/PID to the rule so the symlink targets the correct device:
 
 ```bash
-udevadm info -a -n /dev/ttyUSB0 | grep -E 'DRIVERS|idVendor|idProduct'
+udevadm info -a -n /dev/ttyUSB0 | grep -E 'idVendor|idProduct'
 ```
 
-Look for the `DRIVERS` line in the `usb` subsystem block:
+Then edit the rule to include the IDs:
 
-| Value      | Chip                   | Adapters                                  |
+```bash
+sudo nano /etc/udev/rules.d/99-rs485.rules
+# Add before SYMLINK:
+#   ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523",
+```
+
+| Driver     | Chip                   | Notes                                     |
 | ---------- | ---------------------- | ----------------------------------------- |
 | `cp210x`   | SiLabs CP2102 / CP2104 | Most cheap Amazon/eBay USB-RS485 adapters |
 | `ch341`    | WCH CH340 / CH341      | Common on blue USB-RS485 sticks           |
-| `ftdi_sio` | FTDI FT232R / FT2232   | Higher-quality adapters                   |
-
-If your adapter uses `cp210x` or `ftdi_sio`, open `deploy/99-rs485.rules` and change `DRIVERS=="ch341"` to match before running `install.sh`:
-
-```bash
-# Example: edit rule for ftdi_sio adapters
-sudo nano /etc/udev/rules.d/99-rs485.rules
-# Change: DRIVERS=="ch341"
-# To:     DRIVERS=="ftdi_sio"
-```
+| `ftdi_sio` | FTDI FT232R / FT2232   | Industrial-grade adapters                 |
 
 ### Apply Rule Changes Without Rebooting
 

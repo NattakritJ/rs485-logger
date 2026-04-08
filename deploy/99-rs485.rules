@@ -2,22 +2,28 @@
 #
 # USAGE NOTES:
 #
-# 1. Find vendor/product IDs for your specific adapter:
-#       udevadm info -a -n /dev/ttyUSBx | grep -E 'idVendor|idProduct'
-#    Then add ATTRS{idVendor}=="XXXX",ATTRS{idProduct}=="XXXX" to the rule below
-#    to pin the symlink to a specific adapter (useful if multiple USB serial devices).
+# 1. This rule matches ANY USB serial adapter on the tty subsystem.
+#    If you have multiple USB serial devices, add VID/PID to pin the
+#    symlink to a specific adapter:
+#
+#       udevadm info -a -n /dev/ttyUSB0 | grep -E 'idVendor|idProduct'
+#
+#    Then add to the rule below:
+#       ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523",
+#    (example values for CH340; yours will differ)
 #
 # 2. Test without reboot after editing this file:
 #       sudo udevadm control --reload-rules
 #       sudo udevadm trigger
 #       ls -la /dev/ttyRS485   # symlink should appear
 #
-# 3. Common USB-RS485 chip drivers:
+# 3. Common USB-RS485 chip drivers (for reference only — rule is driver-agnostic):
 #       cp210x   — SiLabs CP2102/CP2104 (most common cheap adapters)
 #       ch341    — CH340 / CH341 chips
 #       ftdi_sio — FTDI FT232R / FT2232 chips
 #
-# This rule matches the cp210x driver (SiLabs — most common cheap USB-RS485 adapter).
-# Change DRIVERS=="cp210x" to match your adapter's driver if needed.
+# Driver-agnostic rule — works with any USB-RS485 adapter chip.
+# Add ATTRS{idVendor}=="XXXX", ATTRS{idProduct}=="XXXX" for precision
+# if multiple USB serial devices are connected.
 
-SUBSYSTEM=="tty", SUBSYSTEMS=="usb", DRIVERS=="ch341", SYMLINK+="ttyRS485", MODE="0660", GROUP="dialout"
+SUBSYSTEM=="tty", SUBSYSTEMS=="usb", SYMLINK+="ttyRS485", MODE="0660", GROUP="dialout"
