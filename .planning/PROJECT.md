@@ -8,13 +8,13 @@ A Rust daemon that polls multiple PZEM-016 power meters connected in a Modbus RS
 
 Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
 
-## Current State (v1.0 — Phase 01 Complete 2026-04-09)
+## Current State (v1.0 — Phase 02 Complete 2026-04-08)
 
-- **Status:** Phase 01 complete — RS485 poll cycle optimized; 5-device cycle now ~900ms (was ~3000ms)
-- **LOC:** ~1,737 Rust across 6 source files (main.rs, config.rs, types.rs, influx.rs, poller.rs, scheduler.rs)
-- **Tech stack:** tokio 1.50 (current_thread), tokio-modbus 0.17, reqwest 0.13 (rustls), tracing 0.1, chrono-tz 0.10
+- **Status:** Phase 02 complete — InfluxDB writes decoupled from poll loop; parity config added; udev rule driver-agnostic
+- **LOC:** ~1,750 Rust across 6 source files (main.rs, config.rs, types.rs, influx.rs, poller.rs, scheduler.rs)
+- **Tech stack:** tokio 1.50 (multi_thread), tokio-modbus 0.17, reqwest 0.13 (rustls), tracing 0.1, chrono-tz 0.10
 - **Target:** aarch64-unknown-linux-gnu / armv7-unknown-linux-gnueabihf (Raspberry Pi); cross-compilation via `cargo cross`
-- **Known tech debt:** CFG-02 parity field missing; RISK-1 udev driver doc mismatch; 5 phases lack VERIFICATION.md
+- **Known tech debt:** reqwest feature rename (`"rustls"` → `"rustls-tls"`); 5 earlier phases lack VERIFICATION.md
 
 ## Requirements
 
@@ -34,11 +34,12 @@ Reliable, continuous power data from every PZEM-016 flowing into InfluxDB withou
 - ✓ Daily energy reset via Modbus FC 0x42 at configurable timezone/time — v1.0
 - ✓ Daemon reliability hardening (HTTP timeouts, serial recovery, config validation, log rotation, git hygiene) — v1.0
 - ✓ RS485 poll cycle optimized: 5-device cycle ~900ms via 150ms configurable read timeout + split inter-frame delays (30ms reads / 100ms resets) — Phase 01
+- ✓ InfluxDB writes decoupled from poll loop via `tokio::spawn` fire-and-forget; `influx_healthy` uses `Arc<AtomicBool>` — poll cycle drops to ~450ms — Phase 02
+- ✓ Parity configurable in TOML (`serial.parity = "N"/"E"/"O"`); defaults 8N1; fail-fast validation at startup — Phase 02
+- ✓ Udev rule driver-agnostic (removes `DRIVERS==` filter); works with cp210x, ch341, ftdi_sio — Phase 02
 
 ### Active (Next Milestone)
 
-- [ ] **CFG-02 gap:** Add `parity: Option<String>` to `SerialConfig` with default `"N"` — makes PZEM-016 8N1 explicit and user-configurable
-- [ ] **RISK-1 fix:** Align udev rule driver name (`ch341` vs `cp210x`) with README documentation
 - [ ] **reqwest feature:** Rename feature `"rustls"` to `"rustls-tls"` in Cargo.toml for canonical correctness
 
 ### Out of Scope
