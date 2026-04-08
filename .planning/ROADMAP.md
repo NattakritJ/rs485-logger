@@ -32,3 +32,13 @@ Full details: [.planning/milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 | 5. README / Manual | v1.0 | 1/1 | Complete | 2026-04-02 |
 | 6. Daily Energy Reset | v1.0 | 2/2 | Complete | 2026-04-03 |
 | 7. Daemon Reliability Hardening | v1.0 | 3/3 | Complete | 2026-04-03 |
+
+### Phase 1: Research and find a way to poll devices faster when attach multiples rs485 in a chain. Now, I have 5 devices connected into rs485-usb, even though I set poll interval to 1 second, it takes 5 seconds to poll every devices.
+
+**Goal:** Reduce 5-device poll cycle from ~3-5s to <1s by tuning read timeout (500ms → 150ms configurable), splitting inter-frame delay (30ms reads / 100ms resets), and adding cycle duration monitoring.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09
+**Depends on:** Phase 0
+**Plans:** 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Config + poller + main loop poll speed optimization
