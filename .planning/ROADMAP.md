@@ -41,4 +41,4 @@ Full details: [.planning/milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 **Plans:** 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Config + poller + main loop poll speed optimization
+- [x] 01-01-PLAN.md — Config + poller + main loop poll speed optimization

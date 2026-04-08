@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: Milestone archived — ready for /gsd-new-milestone
-stopped_at: Phase 1 context gathered
-last_updated: "2026-04-08T20:45:25.401Z"
-last_activity: 2026-04-03
+status: verifying
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-04-08T20:59:58.935Z"
+last_activity: 2026-04-08
 progress:
   total_phases: 1
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
   percent: 100
 ---
 
@@ -21,13 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-03)
 
 **Core value:** Reliable, continuous power data from every PZEM-016 flowing into InfluxDB without data gaps — even when individual devices go offline.
-**Current focus:** v1.0 milestone shipped — planning next milestone
+**Current focus:** Phase 01 — research-and-find-a-way-to-poll-devices-faster-when-attach-multiples-rs485-in-a-chain-now-i-have-5-devices-connected-into-rs485-usb-even-though-i-set-poll-interval-to-1-second-it-takes-5-seconds-to-poll-every-devices
 
 ## Current Position
 
-Phase: v1.0 complete
-Status: Milestone archived — ready for /gsd-new-milestone
-Last activity: 2026-04-03
+Phase: 01 (research-and-find-a-way-to-poll-devices-faster-when-attach-multiples-rs485-in-a-chain-now-i-have-5-devices-connected-into-rs485-usb-even-though-i-set-poll-interval-to-1-second-it-takes-5-seconds-to-poll-every-devices) — EXECUTING
+Plan: 1 of 1
+Status: Phase complete — ready for verification
+Last activity: 2026-04-08
 
 Progress: [██████████] 100%
 
@@ -69,6 +70,12 @@ Full decision log from v1.0 development:
 - CRIT-02 exit+systemd-restart — simpler than in-process serial reconnect
 - influx_healthy flag per-daemon — all devices share one InfluxDB connection
 
+Phase 01 decisions:
+
+- read_timeout_ms Option<u64> in SerialConfig — default 150ms via unwrap_or, backwards-compatible with existing configs
+- Split INTER_FRAME_DELAY into READ (30ms) and RESET (100ms) — reads settle in <50ms, resets need EEPROM write margin
+- bus_delay() split into bus_delay_read()/bus_delay_reset() — semantic clarity at call sites
+
 ### Roadmap Evolution
 
 - Phases 1-4: Core RS485 polling daemon with InfluxDB writes and systemd deployment
@@ -84,8 +91,10 @@ Full decision log from v1.0 development:
 | 260402-msc | Create ARCHITECTURE.md to explain how the program works with Rust language explanations for developers unfamiliar with Rust | 2026-04-02 | 2d54d9f | [260402-msc-create-architecture-md-to-explain-how-th](./quick/260402-msc-create-architecture-md-to-explain-how-th/) |
 | 260403-0gn | Add --clear flag to send energy reset to all devices and exit immediately | 2026-04-03 | b53d656 | [260403-0gn-add-clear-parameter-for-energy-clear-mod](./quick/260403-0gn-add-clear-parameter-for-energy-clear-mod/) |
 
+**Phase 01-01:** Poll speed optimization — 2 tasks, 4 files, 4 min — Commits: f382bcd, 4531cd3
+
 ## Session Continuity
 
-Last session: 2026-04-08T20:45:25.394Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-research-and-find-a-way-to-poll-devices-faster-when-attach-multiples-rs485-in-a-chain-now-i-have-5-devices-connected-into-rs485-usb-even-though-i-set-poll-interval-to-1-second-it-takes-5-seconds-to-poll-every-devices/01-CONTEXT.md
+Last session: 2026-04-08T20:59:58.932Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
