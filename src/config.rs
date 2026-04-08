@@ -9,8 +9,8 @@ pub struct AppConfig {
     pub influxdb: InfluxConfig,
     pub devices: Vec<DeviceConfig>,
     // OPS-03: optional logging config
-    pub log_file: Option<String>,   // e.g. "/var/log/rs485-logger/rs485.log"
-    pub log_level: Option<String>,  // e.g. "debug", "info", "warn" — default "info"
+    pub log_file: Option<String>, // e.g. "/var/log/rs485-logger/rs485.log"
+    pub log_level: Option<String>, // e.g. "debug", "info", "warn" — default "info"
     // Phase 06: optional daily energy reset
     pub energy_reset: Option<EnergyResetConfig>,
 }
@@ -18,14 +18,17 @@ pub struct AppConfig {
 #[derive(Debug, serde::Deserialize)]
 pub struct EnergyResetConfig {
     pub enabled: bool,
-    pub timezone: String,   // IANA name, e.g. "Asia/Bangkok"
-    pub time: String,       // "HH:MM" format, e.g. "00:00"
+    pub timezone: String, // IANA name, e.g. "Asia/Bangkok"
+    pub time: String,     // "HH:MM" format, e.g. "00:00"
 }
 
 #[derive(Debug, serde::Deserialize)]
 pub struct SerialConfig {
     pub port: String,
     pub baud_rate: u32,
+    /// Modbus read timeout in milliseconds. Default: 150ms.
+    /// Only affects FC 0x04 (read input registers). Energy reset (FC 0x42) always uses 500ms.
+    pub read_timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -51,14 +54,8 @@ pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
 }
 
 pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
-    anyhow::ensure!(
-        cfg.poll_interval_secs > 0,
-        "poll_interval_secs must be > 0"
-    );
-    anyhow::ensure!(
-        !cfg.influxdb.url.is_empty(),
-        "influxdb.url is empty"
-    );
+    anyhow::ensure!(cfg.poll_interval_secs > 0, "poll_interval_secs must be > 0");
+    anyhow::ensure!(!cfg.influxdb.url.is_empty(), "influxdb.url is empty");
     anyhow::ensure!(
         !cfg.influxdb.token.is_empty(),
         "influxdb.token is empty — set a Bearer token"
@@ -92,10 +89,15 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
     }
     if let Some(ref er) = cfg.energy_reset {
         if er.enabled {
-            er.timezone.parse::<chrono_tz::Tz>()
-                .map_err(|_| anyhow::anyhow!("Unknown timezone '{}' in energy_reset", er.timezone))?;
-            chrono::NaiveTime::parse_from_str(&er.time, "%H:%M")
-                .with_context(|| format!("Invalid time '{}' in energy_reset — expected HH:MM", er.time))?;
+            er.timezone.parse::<chrono_tz::Tz>().map_err(|_| {
+                anyhow::anyhow!("Unknown timezone '{}' in energy_reset", er.timezone)
+            })?;
+            chrono::NaiveTime::parse_from_str(&er.time, "%H:%M").with_context(|| {
+                format!(
+                    "Invalid time '{}' in energy_reset — expected HH:MM",
+                    er.time
+                )
+            })?;
         }
     }
     Ok(())
@@ -153,6 +155,7 @@ name = "grid_meter"
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
+                read_timeout_ms: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
@@ -288,7 +291,10 @@ name = "solar_panel"
     #[test]
     fn test_load_config_file_not_found() {
         let result = load_config("nonexistent.toml");
-        assert!(result.is_err(), "load_config should return Err for missing file");
+        assert!(
+            result.is_err(),
+            "load_config should return Err for missing file"
+        );
     }
 
     // --- Database name validation (HIGH-03) ---
@@ -299,13 +305,17 @@ name = "solar_panel"
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
+                read_timeout_ms: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
                 token: "my-token".to_string(),
                 database: database.to_string(),
             },
-            devices: vec![DeviceConfig { address: 1, name: "meter".to_string() }],
+            devices: vec![DeviceConfig {
+                address: 1,
+                name: "meter".to_string(),
+            }],
             log_file: None,
             log_level: None,
             energy_reset: None,
@@ -368,13 +378,17 @@ name = "solar_panel"
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
+                read_timeout_ms: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
                 token: "my-token".to_string(),
                 database: "power".to_string(),
             },
-            devices: vec![DeviceConfig { address, name: name.to_string() }],
+            devices: vec![DeviceConfig {
+                address,
+                name: name.to_string(),
+            }],
             log_file: None,
             log_level: None,
             energy_reset: None,
@@ -446,13 +460,17 @@ name = "solar_panel"
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
+                read_timeout_ms: None,
             },
             influxdb: InfluxConfig {
                 url: "http://localhost:8086".to_string(),
                 token: "my-token".to_string(),
                 database: "power".to_string(),
             },
-            devices: vec![DeviceConfig { address: 1, name: "meter".to_string() }],
+            devices: vec![DeviceConfig {
+                address: 1,
+                name: "meter".to_string(),
+            }],
             log_file: None,
             log_level: None,
             energy_reset: Some(EnergyResetConfig {
@@ -505,6 +523,34 @@ name = "solar_panel"
             "Valid timezone and time should pass validation"
         );
     }
+
+    // --- read_timeout_ms parsing (D-03) ---
+
+    #[test]
+    fn test_read_timeout_ms_parsed() {
+        let cfg_str = r#"
+poll_interval_secs = 10
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+read_timeout_ms = 200
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
+        assert_eq!(cfg.serial.read_timeout_ms, Some(200));
+    }
+
+    #[test]
+    fn test_read_timeout_ms_absent_is_none() {
+        let cfg: AppConfig = toml::from_str(VALID_CONFIG).unwrap();
+        assert_eq!(cfg.serial.read_timeout_ms, None);
+    }
 }
 
 #[cfg(test)]
@@ -535,8 +581,12 @@ address = 1
 name = "solar_panel"
 "#;
         let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
-        assert_eq!(cfg.log_level, Some("warn".to_string()),
-            "log_level should be Some(\"warn\") but got {:?}", cfg.log_level);
+        assert_eq!(
+            cfg.log_level,
+            Some("warn".to_string()),
+            "log_level should be Some(\"warn\") but got {:?}",
+            cfg.log_level
+        );
     }
 
     #[test]
@@ -558,8 +608,11 @@ address = 1
 name = "solar_panel"
 "#;
         let cfg: AppConfig = toml::from_str(cfg_str).unwrap();
-        assert_eq!(cfg.log_level, None,
-            "log_level should be None when absent but got {:?}", cfg.log_level);
+        assert_eq!(
+            cfg.log_level, None,
+            "log_level should be None when absent but got {:?}",
+            cfg.log_level
+        );
     }
 
     #[test]
@@ -601,8 +654,8 @@ log_level = "warn"
         let filter_str = format!("{}", filter);
         assert!(
             filter_str.contains("warn"),
-            "EnvFilter display should contain 'warn', got: {}", filter_str
+            "EnvFilter display should contain 'warn', got: {}",
+            filter_str
         );
     }
 }
-

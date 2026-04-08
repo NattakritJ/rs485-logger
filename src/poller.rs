@@ -11,18 +11,13 @@ use tokio_serial::SerialStream;
 use crate::config::{DeviceConfig, SerialConfig};
 use crate::types::{decode_registers, PowerReading};
 
-/// Minimum quiet time between consecutive Modbus RTU transactions on the bus.
-///
-/// The Modbus RTU specification requires at least 3.5 character times of silence
-/// between frames (~4 ms at 9600 baud).  In practice, PZEM-016 devices need
-/// additional recovery time after an energy reset (FC 0x42) because the command
-/// triggers an internal EEPROM write.  We use 100 ms as a safe margin that
-/// works reliably across all command types while keeping multi-device round-trips
-/// fast.
-///
-/// Without this delay, the second device on the bus consistently times out
-/// because the master's next command arrives before the bus has fully settled.
-const INTER_FRAME_DELAY: Duration = Duration::from_millis(100);
+/// Inter-frame delay after FC 0x04 read transactions.
+/// PZEM-016 reads complete in <50ms; 30ms silence is sufficient for bus settling.
+const INTER_FRAME_DELAY_READ: Duration = Duration::from_millis(30);
+
+/// Inter-frame delay after FC 0x42 energy reset transactions.
+/// The PZEM-016 performs an internal EEPROM write on reset — needs more recovery time.
+const INTER_FRAME_DELAY_RESET: Duration = Duration::from_millis(100);
 
 /// Holds the Modbus RTU context for the shared RS485 bus.
 ///
@@ -32,6 +27,7 @@ const INTER_FRAME_DELAY: Duration = Duration::from_millis(100);
 /// reopening the port.
 pub struct ModbusPoller {
     ctx: client::Context,
+    read_timeout: Duration,
 }
 
 impl ModbusPoller {
@@ -45,22 +41,33 @@ impl ModbusPoller {
         let port = SerialStream::open(&builder)
             .with_context(|| format!("Failed to open serial port '{}'", serial.port))?;
         let ctx = rtu::attach(port);
-        Ok(ModbusPoller { ctx })
+        let read_timeout = Duration::from_millis(
+            serial.read_timeout_ms.unwrap_or(150),
+        );
+        Ok(ModbusPoller { ctx, read_timeout })
     }
 
-    /// Enforce the Modbus RTU inter-frame silence period.
+    /// Inter-frame delay after read transactions (FC 0x04). 30ms.
     ///
-    /// Must be called **after** every Modbus transaction (successful or failed)
-    /// before the next command is sent on the bus.  This ensures the bus is
-    /// electrically quiet long enough for all devices to recognise the frame
-    /// boundary.
-    pub async fn bus_delay(&self) {
-        tokio::time::sleep(INTER_FRAME_DELAY).await;
+    /// Must be called **after** every FC 0x04 Modbus transaction before the next
+    /// command is sent on the bus. This ensures the bus is electrically quiet long
+    /// enough for all devices to recognise the frame boundary.
+    pub async fn bus_delay_read(&self) {
+        tokio::time::sleep(INTER_FRAME_DELAY_READ).await;
+    }
+
+    /// Inter-frame delay after energy reset transactions (FC 0x42). 100ms.
+    ///
+    /// PZEM-016 performs an internal EEPROM write on reset — needs more recovery
+    /// time than a standard read transaction. Must be called after every FC 0x42
+    /// Modbus transaction.
+    pub async fn bus_delay_reset(&self) {
+        tokio::time::sleep(INTER_FRAME_DELAY_RESET).await;
     }
 
     /// Switch to `device`'s Modbus slave address, issue FC 0x04 for 10 input
-    /// registers starting at 0x0000 with a 500 ms timeout, decode them into a
-    /// [`PowerReading`], and return it.
+    /// registers starting at 0x0000 with a configurable timeout (default 150ms),
+    /// decode them into a [`PowerReading`], and return it.
     ///
     /// # Errors
     /// Returns `Err` on timeout, Modbus transport error, Modbus exception
@@ -78,7 +85,7 @@ impl ModbusPoller {
         //   2. TransportError    (outer Result — IO / protocol)
         //   3. ExceptionCode     (inner Result — Modbus exception from device)
         let regs = tokio::time::timeout(
-            Duration::from_millis(500),
+            self.read_timeout,
             self.ctx.read_input_registers(0x0000, 10),
         )
         .await
@@ -163,6 +170,7 @@ mod tests {
         let serial = SerialConfig {
             port: "/dev/ttyUSB0".to_string(),
             baud_rate: 9600,
+            read_timeout_ms: None,
         };
         let device = DeviceConfig {
             address: 1,
@@ -178,6 +186,7 @@ mod tests {
         let serial = SerialConfig {
             port: "/dev/ttyUSB0".to_string(),
             baud_rate: 9600,
+            read_timeout_ms: None,
         };
         let device = DeviceConfig {
             address: 1,
