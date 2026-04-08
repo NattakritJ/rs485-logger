@@ -120,6 +120,10 @@ port = "/dev/ttyRS485"
 # Baud rate. PZEM-016 factory default is 9600. Do not change unless you have
 # explicitly re-configured the device.
 baud_rate = 9600
+# Modbus read timeout in milliseconds. Default: 150.
+# Lower values reduce cycle time for multi-device chains; raise if sporadic timeouts occur.
+# Energy reset commands always use 500 ms regardless of this setting.
+# read_timeout_ms = 150
 
 [influxdb]
 # InfluxDB 3 base URL — no trailing slash.
@@ -160,6 +164,7 @@ name = "grid_meter"
 | `poll_interval_secs`    | `u64`    | ✓        | —        | Seconds between full poll cycles. Minimum: 1.                                                                               |
 | `serial.port`           | `string` | ✓        | —        | `/dev/ttyRS485` (with udev) or `/dev/ttyUSB0`                                                                               |
 | `serial.baud_rate`      | `u32`    | ✓        | —        | `9600` for PZEM-016 (factory default)                                                                                       |
+| `serial.read_timeout_ms` | `u64`    | —        | `150`    | Modbus read timeout in ms. Lower values shorten cycle time on multi-device chains. Energy reset always uses 500 ms. |
 | `influxdb.url`          | `string` | ✓        | —        | Base URL, no trailing slash                                                                                                 |
 | `influxdb.token`        | `string` | ✓        | —        | Bearer token from InfluxDB UI                                                                                               |
 | `influxdb.database`     | `string` | ✓        | —        | Database/bucket name — alphanumeric, `_`, `-` only                                                                          |
@@ -364,6 +369,14 @@ System clock sanity warning (logged at most once if the Pi clock is wrong at boo
 WARN System clock appears incorrect (before 2024-01-01) — data may have wrong timestamps timestamp_secs=...
 ```
 
+When a full poll cycle takes longer than `poll_interval_secs`:
+
+```
+WARN Poll cycle took 1200ms, exceeds configured interval of 1s — consider reducing read_timeout_ms or device count cycle_ms=1200 interval_secs=1
+```
+
+This warning fires once per slow cycle. The daemon does not skip devices — it simply notes the overrun and starts the next cycle immediately.
+
 ---
 
 ## Verifying Data in InfluxDB
@@ -451,6 +464,7 @@ ls -la /dev/ttyRS485   # symlink should now appear
 | Daemon starts but no data in InfluxDB                 | Writes are silently failing                                 | Check `journalctl -u rs485-logger -f` for `WARN InfluxDB write failed` lines                                                                      |
 | No data after reboot                                  | systemd unit not enabled                                    | Run `sudo systemctl enable rs485-logger`                                                                                                          |
 | 32-bit word order produces wrong values               | Hardware word-order deviation                               | PZEM-016 uses low-word-first 32-bit order — verify against physical hardware readings                                                             |
+| `Poll cycle took Xms, exceeds configured interval of Ys` | Too many devices or `read_timeout_ms` too high for the configured `poll_interval_secs` | Reduce `read_timeout_ms` (e.g. `100`) or increase `poll_interval_secs`; 5 devices × 150 ms ≈ 900 ms minimum cycle |
 
 ### Manual Startup for Debugging
 
