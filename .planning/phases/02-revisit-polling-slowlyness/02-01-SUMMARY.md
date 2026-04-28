@@ -121,3 +121,15 @@ None — no external service configuration required. This is a code change only;
 ---
 *Phase: 02-revisit-polling-slowlyness*
 *Completed: 2026-04-09*
+
+## Self-Check: PASSED
+
+- ✅ `src/influx.rs` — file exists, contains `#[derive(Clone)]`
+- ✅ `src/main.rs` — file exists, contains `Arc::new(AtomicBool::new(true))`, `tokio::spawn(async move`, `writer_clone = writer.clone()`, `Arc::clone(&influx_healthy)`, no direct `writer.write(&reading).await` in poll loop
+- ✅ `src/poller.rs` — file exists, parity field added to test helpers
+- ✅ commit `0816bca` — verified in git log
+- ✅ commit `4b36ef3` — metadata commit verified
+- ✅ `02-01-SUMMARY.md` — this file exists
+- ✅ `cargo test` — 47 passed, 4 ignored, 0 failed
+- ✅ `cargo clippy -- -D warnings` — clean
+- ✅ `cargo build --release` — succeeded

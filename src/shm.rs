@@ -73,7 +73,9 @@ impl ShmWriter {
     pub fn write(&mut self, readings: &[ShmReading<'_>]) -> anyhow::Result<()> {
         let count = readings.len().min(MAX_INVERTERS);
 
-        let seq_ptr = self.mmap.as_ptr() as *const AtomicU64;
+        // Derive all pointers from as_mut_ptr() to keep a single provenance chain
+        let base = self.mmap.as_mut_ptr();
+        let seq_ptr = base as *mut AtomicU64;
         let seq = unsafe { &*seq_ptr };
         let current = seq.load(Ordering::Relaxed);
 
@@ -81,7 +83,6 @@ impl ShmWriter {
         seq.store(current + 1, Ordering::Release);
 
         // Step 2: Write data fields using raw pointer arithmetic
-        let base = self.mmap.as_mut_ptr();
         unsafe {
             // Offset 8: timestamp_ns (i64)
             let now_ns = std::time::SystemTime::now()
