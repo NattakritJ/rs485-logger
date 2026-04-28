@@ -53,3 +53,13 @@ Plans:
 Plans:
 - [x] 02-01-PLAN.md — Decouple InfluxDB writes from poll loop (fire-and-forget + Arc<AtomicBool> health)
 - [x] 02-02-PLAN.md — Add parity config (CFG-02) + fix udev rule driver mismatch (RISK-1)
+
+### Phase 3: Faster than 1s poll interval
+
+**Goal:** Enable sub-second poll intervals by adding `poll_interval_ms` config field with millisecond precision, backward-compatible with existing `poll_interval_secs` configs.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13
+**Depends on:** Phase 2
+**Plans:** 1/1 plans complete
+
+Plans:
+- [x] 03-01-PLAN.md — Update AppConfig, validate_config, wire resolved poll_interval_ms
