@@ -1,5 +1,11 @@
-# How often to poll all devices (seconds). Minimum: 1. Typical: 10.
+# How often to poll all devices.
+# Use poll_interval_secs for whole-second intervals (e.g. 10 = 10 seconds).
+# Use poll_interval_ms for sub-second or precise millisecond intervals (e.g. 500 = 0.5 seconds).
+# If both are set, poll_interval_ms takes precedence.
+# If neither is set, the default is 10,000 ms (10 seconds).
+# Warning: intervals below 500ms may not complete a full 5-device cycle (~450ms per cycle).
 poll_interval_secs = 10
+# poll_interval_ms = 500
 
 # Optional: override log verbosity.
 # Values: "error", "warn", "info" (default), "debug", "trace"

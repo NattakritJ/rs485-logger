@@ -134,9 +134,23 @@ async fn main() -> anyhow::Result<()> {
             .init();
     }
 
+    // D-05: Resolve effective poll interval from config fields.
+    // poll_interval_ms takes precedence; fall back to poll_interval_secs * 1000; default 10,000ms.
+    let poll_interval_ms: u64 = cfg.poll_interval_ms
+        .unwrap_or_else(|| cfg.poll_interval_secs.unwrap_or(10) * 1000);
+
+    // D-08: Warn at startup if the interval is very short.
+    if poll_interval_ms < 500 {
+        tracing::warn!(
+            poll_interval_ms = poll_interval_ms,
+            "Poll interval is very short ({}ms) — a 5-device cycle takes ~450ms, polling may not complete within the interval",
+            poll_interval_ms
+        );
+    }
+
     tracing::info!(
         devices = cfg.devices.len(),
-        interval_secs = cfg.poll_interval_secs,
+        interval_ms = poll_interval_ms,
         "rs485-logger starting"
     );
 
@@ -178,7 +192,7 @@ async fn main() -> anyhow::Result<()> {
     let influx_healthy = Arc::new(AtomicBool::new(true));
 
     let mut ticker = tokio::time::interval(
-        std::time::Duration::from_secs(cfg.poll_interval_secs),
+        std::time::Duration::from_millis(poll_interval_ms),
     );
     // Skip missed ticks: if the energy reset loop (or any other blocking arm)
     // causes a tick to be missed, do NOT burst-fire to catch up — simply skip
@@ -385,14 +399,13 @@ async fn main() -> anyhow::Result<()> {
 
                 // D-09: Warn if the poll cycle took longer than the configured interval.
                 let cycle_ms = cycle_start.elapsed().as_millis();
-                let interval_ms = cfg.poll_interval_secs as u128 * 1000;
-                if cycle_ms > interval_ms {
+                if cycle_ms > poll_interval_ms as u128 {
                     tracing::warn!(
                         cycle_ms = cycle_ms as u64,
-                        interval_secs = cfg.poll_interval_secs,
-                        "Poll cycle took {}ms, exceeds configured interval of {}s — consider reducing read_timeout_ms or device count",
+                        interval_ms = poll_interval_ms,
+                        "Poll cycle took {}ms, exceeds configured interval of {}ms — consider reducing read_timeout_ms or device count",
                         cycle_ms,
-                        cfg.poll_interval_secs
+                        poll_interval_ms
                     );
                 }
             }
