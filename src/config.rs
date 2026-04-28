@@ -4,7 +4,8 @@ use anyhow::Context;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AppConfig {
-    pub poll_interval_secs: u64,
+    pub poll_interval_secs: Option<u64>,
+    pub poll_interval_ms: Option<u64>,
     pub serial: SerialConfig,
     pub influxdb: InfluxConfig,
     pub devices: Vec<DeviceConfig>,
@@ -57,7 +58,12 @@ pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
 }
 
 pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
-    anyhow::ensure!(cfg.poll_interval_secs > 0, "poll_interval_secs must be > 0");
+    if let Some(secs) = cfg.poll_interval_secs {
+        anyhow::ensure!(secs > 0, "poll_interval_secs must be > 0");
+    }
+    if let Some(ms) = cfg.poll_interval_ms {
+        anyhow::ensure!(ms > 0, "poll_interval_ms must be > 0");
+    }
     anyhow::ensure!(!cfg.influxdb.url.is_empty(), "influxdb.url is empty");
     anyhow::ensure!(
         !cfg.influxdb.token.is_empty(),
@@ -142,7 +148,8 @@ name = "grid_meter"
     #[test]
     fn test_happy_path_deserializes_correctly() {
         let cfg: AppConfig = toml::from_str(VALID_CONFIG).unwrap();
-        assert_eq!(cfg.poll_interval_secs, 10);
+        assert_eq!(cfg.poll_interval_secs, Some(10));
+        assert_eq!(cfg.poll_interval_ms, None);
         assert_eq!(cfg.serial.port, "/dev/ttyUSB0");
         assert_eq!(cfg.serial.baud_rate, 9600);
         assert_eq!(cfg.influxdb.url, "http://localhost:8086");
@@ -162,7 +169,8 @@ name = "grid_meter"
         // before any [section] headers. We build AppConfig directly to test
         // validate_config with an empty device list.
         let cfg = AppConfig {
-            poll_interval_secs: 10,
+            poll_interval_secs: Some(10),
+            poll_interval_ms: None,
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
@@ -301,6 +309,108 @@ name = "solar_panel"
     }
 
     #[test]
+    fn test_poll_interval_ms_accepted() {
+        let config_str = r#"
+poll_interval_ms = 500
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        assert_eq!(cfg.poll_interval_ms, Some(500));
+        assert_eq!(cfg.poll_interval_secs, None);
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_poll_interval_ms_zero_rejected() {
+        let config_str = r#"
+poll_interval_ms = 0
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("poll_interval"),
+            "Error should mention 'poll_interval', got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_poll_interval_both_absent_valid() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        assert_eq!(cfg.poll_interval_secs, None);
+        assert_eq!(cfg.poll_interval_ms, None);
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_poll_interval_ms_wins_when_both_present() {
+        let config_str = r#"
+poll_interval_ms = 500
+poll_interval_secs = 10
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        assert_eq!(cfg.poll_interval_ms, Some(500));
+        assert_eq!(cfg.poll_interval_secs, Some(10));
+        let resolved: u64 = cfg.poll_interval_ms
+            .unwrap_or_else(|| cfg.poll_interval_secs.unwrap_or(10) * 1000);
+        assert_eq!(resolved, 500);
+        assert!(validate_config(&cfg).is_ok());
+    }
+
+    #[test]
     fn test_load_config_file_not_found() {
         let result = load_config("nonexistent.toml");
         assert!(
@@ -313,7 +423,8 @@ name = "solar_panel"
 
     fn make_cfg_with_database(database: &str) -> AppConfig {
         AppConfig {
-            poll_interval_secs: 10,
+            poll_interval_secs: Some(10),
+            poll_interval_ms: None,
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
@@ -387,7 +498,8 @@ name = "solar_panel"
 
     fn make_cfg_with_device(address: u8, name: &str) -> AppConfig {
         AppConfig {
-            poll_interval_secs: 10,
+            poll_interval_secs: Some(10),
+            poll_interval_ms: None,
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
@@ -470,7 +582,8 @@ name = "solar_panel"
 
     fn make_cfg_with_energy_reset(timezone: &str, time: &str, enabled: bool) -> AppConfig {
         AppConfig {
-            poll_interval_secs: 10,
+            poll_interval_secs: Some(10),
+            poll_interval_ms: None,
             serial: SerialConfig {
                 port: "/dev/ttyUSB0".to_string(),
                 baud_rate: 9600,
