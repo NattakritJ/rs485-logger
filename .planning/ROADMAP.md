@@ -83,5 +83,5 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Config schema: ShmConfig, DeviceConfig.shm_name, validation rules, memmap2 dep
-- [ ] 05-02-PLAN.md — ShmWriter module + main.rs poll loop integration
+- [x] 05-01-PLAN.md — Config schema: ShmConfig, DeviceConfig.shm_name, validation rules, memmap2 dep
+- [x] 05-02-PLAN.md — ShmWriter module + main.rs poll loop integration
