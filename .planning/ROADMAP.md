@@ -77,10 +77,11 @@ Plans:
 
 ### Phase 5: IPC Shared memory writer
 
-**Goal:** [To be planned]
-**Requirements**: TBD
+**Goal:** Implement the writer side of the PZEM-to-Orchestrator shared memory interface — write per-inverter power data to a 96-byte fixed-size binary region in `/dev/shm/pzem-power.bin` using a seqlock protocol, enabling the Solar Orchestrator to read power data with near-zero latency (<1μs).
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
 **Depends on:** Phase 4
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 5 to break down)
+- [ ] 05-01-PLAN.md — Config schema: ShmConfig, DeviceConfig.shm_name, validation rules, memmap2 dep
+- [ ] 05-02-PLAN.md — ShmWriter module + main.rs poll loop integration
