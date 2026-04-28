@@ -72,7 +72,7 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Config schema: add poll_interval_ms to DeviceConfig + validation + config examples
+- [x] 04-01-PLAN.md — Config schema: add poll_interval_ms to DeviceConfig + validation + config examples
 - [ ] 04-02-PLAN.md — Scheduler: tick-at-minimum loop with per-device due check
 
 ### Phase 5: IPC Shared memory writer
