@@ -63,3 +63,24 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Update AppConfig, validate_config, wire resolved poll_interval_ms
+
+### Phase 4: per device poll interval override
+
+**Goal:** Allow individual [[devices]] entries to override the global poll interval via per-device `poll_interval_ms`, transforming the poll loop into a tick-at-minimum scheduler that polls only due devices each tick.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09
+**Depends on:** Phase 3
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Config schema: add poll_interval_ms to DeviceConfig + validation + config examples
+- [ ] 04-02-PLAN.md — Scheduler: tick-at-minimum loop with per-device due check
+
+### Phase 5: IPC Shared memory writer
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 4
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 5 to break down)
