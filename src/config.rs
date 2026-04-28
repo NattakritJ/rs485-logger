@@ -14,6 +14,8 @@ pub struct AppConfig {
     pub log_level: Option<String>, // e.g. "debug", "info", "warn" — default "info"
     // Phase 06: optional daily energy reset
     pub energy_reset: Option<EnergyResetConfig>,
+    // Phase 05: optional shared memory writer
+    pub shm: Option<ShmConfig>,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -21,6 +23,12 @@ pub struct EnergyResetConfig {
     pub enabled: bool,
     pub timezone: String, // IANA name, e.g. "Asia/Bangkok"
     pub time: String,     // "HH:MM" format, e.g. "00:00"
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ShmConfig {
+    pub enabled: bool,
+    pub path: String,
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -47,6 +55,7 @@ pub struct DeviceConfig {
     pub address: u8,
     pub name: String,
     pub poll_interval_ms: Option<u64>,
+    pub shm_name: Option<String>,
 }
 
 pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
@@ -124,6 +133,41 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
             "serial.parity '{}' is invalid — accepted values: \"N\" (none), \"E\" (even), \"O\" (odd)",
             p
         );
+    }
+    if let Some(ref shm) = cfg.shm {
+        if shm.enabled {
+            let shm_devices: Vec<&DeviceConfig> = cfg.devices.iter()
+                .filter(|d| d.shm_name.is_some())
+                .collect();
+            anyhow::ensure!(
+                !shm_devices.is_empty(),
+                "shm.enabled is true but no devices have shm_name set"
+            );
+            anyhow::ensure!(
+                shm_devices.len() <= 3,
+                "shm: at most 3 devices may have shm_name (contract defines 3 inverter slots), found {}",
+                shm_devices.len()
+            );
+            let mut seen_names: Vec<&str> = Vec::new();
+            for device in &shm_devices {
+                let name = device.shm_name.as_ref().unwrap();
+                anyhow::ensure!(
+                    name.len() <= 15,
+                    "device '{}' shm_name '{}' exceeds 15 bytes (16-byte field minus null terminator)",
+                    device.name, name
+                );
+                anyhow::ensure!(
+                    !seen_names.contains(&name.as_str()),
+                    "duplicate shm_name '{}' found on device '{}' — shm_name values must be unique",
+                    name, device.name
+                );
+                seen_names.push(name.as_str());
+            }
+            anyhow::ensure!(
+                !shm.path.is_empty(),
+                "shm.path must not be empty"
+            );
+        }
     }
     Ok(())
 }
