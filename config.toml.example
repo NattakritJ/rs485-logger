@@ -50,12 +50,26 @@ database = "solar"
 # Each device lands in its own InfluxDB measurement named by the `name` field.
 [[devices]]
 address = 1              # Modbus slave address (1–247). Must be unique per device.
-name = "floor_1"         # InfluxDB measurement name. Use alphanumeric and underscore only.
+name = "inverter_east"   # InfluxDB measurement name. Use alphanumeric and underscore only.
+shm_name = "east"        # Optional: expose to orchestrator via shared memory (max 15 chars)
 # poll_interval_ms = 500  # Optional: override global poll interval for this device (milliseconds)
 
 [[devices]]
 address = 2
-name = "floor_2"
+name = "inverter_west"
+shm_name = "west"
+
+[[devices]]
+address = 3
+name = "grid_meter"
+# No shm_name — not exposed to orchestrator, InfluxDB only
+
+# Optional: shared memory writer for near-zero-latency IPC with Solar Orchestrator.
+# Writes per-inverter power data to a 96-byte binary file using seqlock protocol.
+# Only devices with shm_name set are written to the shared memory file.
+# [shm]
+# enabled = true
+# path = "/dev/shm/pzem-power.bin"
 
 # Optional: daily energy reset (sends Modbus FC 0x42 to all devices at midnight).
 # [energy_reset]

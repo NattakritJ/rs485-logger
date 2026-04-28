@@ -238,6 +238,7 @@ name = "grid_meter"
             log_file: None,
             log_level: None,
             energy_reset: None,
+            shm: None,
         };
         let err = validate_config(&cfg).unwrap_err();
         let msg = err.to_string().to_lowercase();
@@ -492,10 +493,12 @@ name = "solar_panel"
                 address: 1,
                 name: "meter".to_string(),
                 poll_interval_ms: None,
+                shm_name: None,
             }],
             log_file: None,
             log_level: None,
             energy_reset: None,
+            shm: None,
         }
     }
 
@@ -568,10 +571,12 @@ name = "solar_panel"
                 address,
                 name: name.to_string(),
                 poll_interval_ms: None,
+                shm_name: None,
             }],
             log_file: None,
             log_level: None,
             energy_reset: None,
+            shm: None,
         }
     }
 
@@ -653,6 +658,7 @@ name = "solar_panel"
                 address: 1,
                 name: "meter".to_string(),
                 poll_interval_ms: None,
+                shm_name: None,
             }],
             log_file: None,
             log_level: None,
@@ -661,6 +667,7 @@ name = "solar_panel"
                 timezone: timezone.to_string(),
                 time: time.to_string(),
             }),
+            shm: None,
         }
     }
 
@@ -857,6 +864,177 @@ poll_interval_ms = 500
         let cfg: AppConfig = toml::from_str(config_str).unwrap();
         assert!(validate_config(&cfg).is_ok());
         assert_eq!(cfg.devices[0].poll_interval_ms, Some(500));
+    }
+
+    // --- Phase 05: shm validation tests ---
+
+    #[test]
+    fn test_shm_enabled_no_devices_with_shm_name_fails() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[shm]
+enabled = true
+path = "/dev/shm/pzem-power.bin"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("no devices have shm_name"));
+    }
+
+    #[test]
+    fn test_shm_more_than_3_devices_fails() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[shm]
+enabled = true
+path = "/dev/shm/pzem-power.bin"
+
+[[devices]]
+address = 1
+name = "d1"
+shm_name = "a"
+
+[[devices]]
+address = 2
+name = "d2"
+shm_name = "b"
+
+[[devices]]
+address = 3
+name = "d3"
+shm_name = "c"
+
+[[devices]]
+address = 4
+name = "d4"
+shm_name = "d"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("at most 3 devices"));
+    }
+
+    #[test]
+    fn test_shm_duplicate_names_fails() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[shm]
+enabled = true
+path = "/dev/shm/pzem-power.bin"
+
+[[devices]]
+address = 1
+name = "d1"
+shm_name = "east"
+
+[[devices]]
+address = 2
+name = "d2"
+shm_name = "east"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("duplicate shm_name"));
+    }
+
+    #[test]
+    fn test_shm_name_too_long_fails() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[shm]
+enabled = true
+path = "/dev/shm/pzem-power.bin"
+
+[[devices]]
+address = 1
+name = "d1"
+shm_name = "this_name_is_way_too_long"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("exceeds 15 bytes"));
+    }
+
+    #[test]
+    fn test_shm_valid_config_passes() {
+        let config_str = r#"
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[shm]
+enabled = true
+path = "/dev/shm/pzem-power.bin"
+
+[[devices]]
+address = 1
+name = "inverter_east"
+shm_name = "east"
+
+[[devices]]
+address = 2
+name = "inverter_west"
+shm_name = "west"
+
+[[devices]]
+address = 3
+name = "grid_meter"
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+    }
+
+    #[test]
+    fn test_shm_absent_section_passes() {
+        let cfg: AppConfig = toml::from_str(VALID_CONFIG).unwrap();
+        let result = validate_config(&cfg);
+        assert!(result.is_ok());
     }
 }
 
