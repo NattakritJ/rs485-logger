@@ -2,6 +2,7 @@ mod config;
 mod influx;
 mod poller;
 mod scheduler;
+mod shm;
 mod types;
 
 use chrono::Utc;
@@ -9,6 +10,7 @@ use config::load_config;
 use influx::InfluxWriter;
 use poller::ModbusPoller;
 use scheduler::next_reset_instant;
+use shm::{ShmWriter, ShmReading};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -206,6 +208,27 @@ async fn main() -> anyhow::Result<()> {
     let mut poller = ModbusPoller::new(&cfg.serial)?;
     let writer = InfluxWriter::new(&cfg.influxdb)?;
 
+    // Phase 05: Initialize shared memory writer if configured
+    let shm_enabled = cfg.shm.as_ref().map(|s| s.enabled).unwrap_or(false);
+    let mut shm_writer: Option<ShmWriter> = if shm_enabled {
+        let shm_cfg = cfg.shm.as_ref().unwrap(); // safe: shm_enabled implies Some
+        match ShmWriter::new(&shm_cfg.path) {
+            Ok(w) => {
+                tracing::info!(path = %shm_cfg.path, "Shared memory writer enabled");
+                Some(w)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to initialize shared memory writer — continuing without shm");
+                None
+            }
+        }
+    } else {
+        if cfg.shm.is_some() {
+            tracing::info!("Shared memory configured but disabled (enabled = false)");
+        }
+        None
+    };
+
     // CRIT-02: Track consecutive poll cycles where ALL devices fail.
     // If the counter reaches MAX_CONSECUTIVE_ALL_FAIL, exit with code 1
     // so systemd `Restart=always` restarts the process and re-opens the serial port.
@@ -345,6 +368,7 @@ async fn main() -> anyhow::Result<()> {
                 // CRIT-02: Track whether at least one device succeeded this cycle.
                 let mut any_ok = false;
                 let mut any_polled = false;
+                let mut shm_readings: Vec<(&str, f64)> = Vec::new();
 
                 for (i, device) in cfg.devices.iter().enumerate() {
                     let effective_interval = std::time::Duration::from_millis(
@@ -359,6 +383,10 @@ async fn main() -> anyhow::Result<()> {
                     match poller.poll_device(device).await {
                         Ok(reading) => {
                             any_ok = true;
+                            // Collect for shm write if device has shm_name
+                            if let Some(ref shm_name) = device.shm_name {
+                                shm_readings.push((shm_name.as_str(), reading.power));
+                            }
                             tracing::info!(
                                 device = %device.name,
                                 "Poll success"
@@ -401,6 +429,18 @@ async fn main() -> anyhow::Result<()> {
                     }
                     // RS-485 inter-frame delay between consecutive device polls.
                     poller.bus_delay_read().await;
+                }
+
+                // Phase 05: Write to shared memory after all devices polled (D-07)
+                if let Some(ref mut shm_w) = shm_writer {
+                    if !shm_readings.is_empty() {
+                        let entries: Vec<ShmReading<'_>> = shm_readings.iter()
+                            .map(|(name, power)| ShmReading { shm_name: name, power_watts: *power })
+                            .collect();
+                        if let Err(e) = shm_w.write(&entries) {
+                            tracing::warn!(error = %e, "Shared memory write failed");
+                        }
+                    }
                 }
 
                 // CRIT-02: Only count failures when at least one device was actually polled.
