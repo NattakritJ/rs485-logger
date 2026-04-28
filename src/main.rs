@@ -139,6 +139,20 @@ async fn main() -> anyhow::Result<()> {
     let poll_interval_ms: u64 = cfg.poll_interval_ms
         .unwrap_or_else(|| cfg.poll_interval_secs.unwrap_or(10) * 1000);
 
+    // D-04/D-05: Compute tick cadence — minimum of global interval and all device overrides.
+    // If no device has a per-device override, tick_interval_ms == poll_interval_ms (no regression).
+    let tick_interval_ms: u64 = cfg.devices.iter()
+        .filter_map(|d| d.poll_interval_ms)
+        .chain(std::iter::once(poll_interval_ms))
+        .min()
+        .unwrap(); // safe: chain guarantees at least one element
+
+    // D-04: Track last poll time per device. Initialize so all devices are due immediately.
+    let mut last_polled_at: Vec<std::time::Instant> = cfg.devices.iter().map(|d| {
+        let effective = d.poll_interval_ms.unwrap_or(poll_interval_ms);
+        std::time::Instant::now() - std::time::Duration::from_millis(effective)
+    }).collect();
+
     // D-08: Warn at startup if the interval is very short.
     if poll_interval_ms < 500 {
         tracing::warn!(
@@ -153,6 +167,20 @@ async fn main() -> anyhow::Result<()> {
         interval_ms = poll_interval_ms,
         "rs485-logger starting"
     );
+
+    // Log per-device interval overrides if any are configured.
+    let override_count = cfg.devices.iter().filter(|d| d.poll_interval_ms.is_some()).count();
+    if override_count > 0 {
+        tracing::info!(
+            tick_interval_ms = tick_interval_ms,
+            overrides = override_count,
+            "Per-device poll intervals active"
+        );
+        for device in &cfg.devices {
+            let effective = device.poll_interval_ms.unwrap_or(poll_interval_ms);
+            tracing::info!(device = %device.name, interval_ms = effective, "Device poll interval");
+        }
+    }
 
     // --clear mode: send energy reset to every device, then exit.
     // Opens the Modbus port, iterates all configured devices sequentially,
@@ -192,7 +220,7 @@ async fn main() -> anyhow::Result<()> {
     let influx_healthy = Arc::new(AtomicBool::new(true));
 
     let mut ticker = tokio::time::interval(
-        std::time::Duration::from_millis(poll_interval_ms),
+        std::time::Duration::from_millis(tick_interval_ms),
     );
     // Skip missed ticks: if the energy reset loop (or any other blocking arm)
     // causes a tick to be missed, do NOT burst-fire to catch up — simply skip
@@ -310,13 +338,24 @@ async fn main() -> anyhow::Result<()> {
                 reset_sleep.as_mut().reset(next_deadline);
             }
             _ = ticker.tick() => {
-                // D-08: Track cycle duration to warn when poll exceeds configured interval.
+                // D-09: Track cycle duration to warn when poll exceeds tick interval.
                 let cycle_start = std::time::Instant::now();
+                let now = std::time::Instant::now();
 
                 // CRIT-02: Track whether at least one device succeeded this cycle.
                 let mut any_ok = false;
+                let mut any_polled = false;
 
-                for device in &cfg.devices {
+                for (i, device) in cfg.devices.iter().enumerate() {
+                    let effective_interval = std::time::Duration::from_millis(
+                        device.poll_interval_ms.unwrap_or(poll_interval_ms)
+                    );
+                    if now.duration_since(last_polled_at[i]) < effective_interval {
+                        continue; // not due yet
+                    }
+                    any_polled = true;
+                    last_polled_at[i] = now;
+
                     match poller.poll_device(device).await {
                         Ok(reading) => {
                             any_ok = true;
@@ -324,9 +363,7 @@ async fn main() -> anyhow::Result<()> {
                                 device = %device.name,
                                 "Poll success"
                             );
-                            // MED-04: InfluxDB health-state tracking — suppress repeated log spam.
-                            // Fire-and-forget: spawn a task so the poll loop is not blocked
-                            // by the ~630ms HTTP write latency.
+                            // MED-04: InfluxDB health-state tracking — fire-and-forget write.
                             {
                                 let writer_clone = writer.clone();
                                 let health = Arc::clone(&influx_healthy);
@@ -334,17 +371,13 @@ async fn main() -> anyhow::Result<()> {
                                 tokio::spawn(async move {
                                     match writer_clone.write(&reading).await {
                                         Ok(()) => {
-                                            // D-07: unhealthy → healthy transition
                                             if !health.load(Ordering::Relaxed) {
                                                 health.store(true, Ordering::Relaxed);
                                                 tracing::info!("InfluxDB connection restored");
                                             }
                                         }
                                         Err(e) => {
-                                            // D-07: healthy → unhealthy transition (first failure logs WARN)
-                                            // While unhealthy: silently drop per-write errors (no repeated WARN spam)
                                             if health.swap(false, Ordering::Relaxed) {
-                                                // Was healthy (true), now set to false — log the transition
                                                 tracing::warn!(
                                                     device = %device_name,
                                                     error = %e,
@@ -362,24 +395,19 @@ async fn main() -> anyhow::Result<()> {
                                 error = %e,
                                 "Device poll failed, skipping"
                             );
-                            // HIGH-04: After a timeout/error, allow stale Modbus frames
-                            // to drain from the serial buffer before polling the next
-                            // device. This 100ms delay only fires on error, not on
-                            // successful polls, so it does not impact normal throughput.
+                            // HIGH-04: Drain stale Modbus frames after error.
                             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
                         }
                     }
-                    // RS-485 inter-frame delay: ensure the bus settles between
-                    // consecutive device polls.  Previously the InfluxDB HTTP
-                    // write provided an accidental delay on the success path,
-                    // but the error path had none — make it explicit everywhere.
+                    // RS-485 inter-frame delay between consecutive device polls.
                     poller.bus_delay_read().await;
                 }
 
-                // CRIT-02: If no device succeeded, increment the consecutive-failure
-                // counter. When it reaches MAX_CONSECUTIVE_ALL_FAIL, exit so systemd
-                // `Restart=always` can restart the process and re-open the serial port.
-                if any_ok {
+                // CRIT-02: Only count failures when at least one device was actually polled.
+                // Ticks where no device was due should not affect the counter.
+                if !any_polled {
+                    // No devices were due this tick — don't change the counter
+                } else if any_ok {
                     consecutive_all_fail = 0;
                 } else {
                     consecutive_all_fail += 1;
@@ -397,15 +425,15 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
 
-                // D-09: Warn if the poll cycle took longer than the configured interval.
+                // D-09: Warn if the poll cycle took longer than the tick interval.
                 let cycle_ms = cycle_start.elapsed().as_millis();
-                if cycle_ms > poll_interval_ms as u128 {
+                if cycle_ms > tick_interval_ms as u128 {
                     tracing::warn!(
                         cycle_ms = cycle_ms as u64,
-                        interval_ms = poll_interval_ms,
-                        "Poll cycle took {}ms, exceeds configured interval of {}ms — consider reducing read_timeout_ms or device count",
+                        interval_ms = tick_interval_ms,
+                        "Poll cycle took {}ms, exceeds tick interval of {}ms — consider reducing read_timeout_ms or device count",
                         cycle_ms,
-                        poll_interval_ms
+                        tick_interval_ms
                     );
                 }
             }
