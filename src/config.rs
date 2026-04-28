@@ -46,6 +46,7 @@ pub struct InfluxConfig {
 pub struct DeviceConfig {
     pub address: u8,
     pub name: String,
+    pub poll_interval_ms: Option<u64>,
 }
 
 pub fn load_config(path: &str) -> anyhow::Result<AppConfig> {
@@ -95,6 +96,13 @@ pub fn validate_config(cfg: &AppConfig) -> anyhow::Result<()> {
             "device name '{}' contains invalid characters — use only alphanumeric and underscore (spaces, commas, newlines break InfluxDB line protocol)",
             device.name
         );
+        if let Some(ms) = device.poll_interval_ms {
+            anyhow::ensure!(
+                ms > 0,
+                "device '{}' has invalid poll_interval_ms {} (must be > 0)",
+                device.name, ms
+            );
+        }
     }
     if let Some(ref er) = cfg.energy_reset {
         if er.enabled {
@@ -439,6 +447,7 @@ name = "solar_panel"
             devices: vec![DeviceConfig {
                 address: 1,
                 name: "meter".to_string(),
+                poll_interval_ms: None,
             }],
             log_file: None,
             log_level: None,
@@ -514,6 +523,7 @@ name = "solar_panel"
             devices: vec![DeviceConfig {
                 address,
                 name: name.to_string(),
+                poll_interval_ms: None,
             }],
             log_file: None,
             log_level: None,
@@ -598,6 +608,7 @@ name = "solar_panel"
             devices: vec![DeviceConfig {
                 address: 1,
                 name: "meter".to_string(),
+                poll_interval_ms: None,
             }],
             log_file: None,
             log_level: None,
@@ -747,6 +758,61 @@ name = "solar_panel"
             cfg.serial.parity, None,
             "parity should be None when absent from config"
         );
+    }
+
+    // --- Per-device poll_interval_ms (Phase 04, D-01/D-02/D-03) ---
+
+    #[test]
+    fn test_per_device_poll_interval_ms_zero_rejected() {
+        let config_str = r#"
+poll_interval_secs = 10
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+poll_interval_ms = 0
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        let err = validate_config(&cfg).unwrap_err();
+        let msg = err.to_string().to_lowercase();
+        assert!(
+            msg.contains("poll_interval_ms"),
+            "Error should mention 'poll_interval_ms', got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_per_device_poll_interval_ms_valid() {
+        let config_str = r#"
+poll_interval_secs = 10
+
+[serial]
+port = "/dev/ttyUSB0"
+baud_rate = 9600
+
+[influxdb]
+url = "http://localhost:8086"
+token = "my-token"
+database = "power"
+
+[[devices]]
+address = 1
+name = "solar_panel"
+poll_interval_ms = 500
+"#;
+        let cfg: AppConfig = toml::from_str(config_str).unwrap();
+        assert!(validate_config(&cfg).is_ok());
+        assert_eq!(cfg.devices[0].poll_interval_ms, Some(500));
     }
 }
 

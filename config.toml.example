@@ -51,6 +51,7 @@ database = "solar"
 [[devices]]
 address = 1              # Modbus slave address (1–247). Must be unique per device.
 name = "floor_1"         # InfluxDB measurement name. Use alphanumeric and underscore only.
+# poll_interval_ms = 500  # Optional: override global poll interval for this device (milliseconds)
 
 [[devices]]
 address = 2

@@ -182,6 +182,7 @@ mod tests {
         let device = DeviceConfig {
             address: 1,
             name: "test_device".to_string(),
+            poll_interval_ms: None,
         };
         let mut poller = ModbusPoller::new(&serial).unwrap();
         let _reading = poller.poll_device(&device).await.unwrap();
@@ -199,6 +200,7 @@ mod tests {
         let device = DeviceConfig {
             address: 1,
             name: "test_device".to_string(),
+            poll_interval_ms: None,
         };
         let mut poller = ModbusPoller::new(&serial).unwrap();
         let _result = poller.reset_energy(&device).await;
